@@ -1,0 +1,109 @@
+name: 888DIGITALFACTORY | Secure CI/CD
+
+on:
+  push:
+    branches: [main, develop, "release/**", "feature/**", "fix/**"]
+  pull_request:
+    branches: [main, develop, "release/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: secure-cicd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-validation:
+    name: "01 · Source validation"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate required dashboard files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f index.html
+          test -f styles.css
+          test -f app.js
+          echo "Required source files exist."
+
+  build:
+    name: "02 · Build and structure"
+    runs-on: ubuntu-latest
+    needs: source-validation
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check HTML, CSS and JavaScript are non-empty
+        run: |
+          set -euo pipefail
+          test -s index.html
+          test -s styles.css
+          test -s app.js
+          echo "Static build checks passed."
+
+  security-checks:
+    name: "03 · Security baseline"
+    runs-on: ubuntu-latest
+    needs: source-validation
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan tracked files for common exposed-secret patterns
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n -I -E '(AKIA[0-9A-Z]{16}|-----BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY-----|gh[pousr]_[A-Za-z0-9_]{30,})' -- ':!*.lock'; then
+            echo "::error::Potential secret detected in tracked source."
+            exit 1
+          else
+            echo "No common secret patterns detected."
+          fi
+      - name: Basic unsafe inline script check
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -n -E 'eval\\(|document\\.write\\(' app.js; then
+            echo "::warning::Review potentially unsafe JavaScript patterns."
+          else
+            echo "No flagged JavaScript patterns."
+          fi
+
+  quality-checks:
+    name: "04 · Quality checks"
+    runs-on: ubuntu-latest
+    needs: [build, security-checks]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: node --check app.js
+      - name: Verify workflow and page assets
+        run: |
+          test -f .github/workflows/secure-cicd.yml
+          grep -q '<html' index.html
+          echo "Quality checks passed."
+
+  deploy-pages:
+    name: "05 · Deploy static site"
+    runs-on: ubuntu-latest
+    needs: [quality-checks]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload static site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
