@@ -1,0 +1,228 @@
+(() => {
+  const OWNER='rodrodbeat-stack', REPO='888DIGITALFACTORY-Nexus-CI-CD';
+  const API=`https://api.github.com/repos/${OWNER}/${REPO}`;
+  const $=id=>document.getElementById(id);
+  let branches=[], commits=[], selectedBranch='all', runToken=0;
+  const colors=name=>name==='main'?'#3de4ff':name==='develop'?'#a77aff':name.startsWith('feature/')?'#56f2a5':name.startsWith('release/')?'#ffcc66':name.startsWith('hotfix/')?'#ff6688':'#6ea8ff';
+  const short=s=>s?s.slice(0,7):'-------';
+  function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}
+  function escapeHtml(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  async function getJson(url){const r=await fetch(url,{headers:{Accept:'application/vnd.github+json'}});if(!r.ok)throw new Error(r.status===403?'Límite temporal de API de GitHub. Espera un minuto y vuelve a sincronizar.':`GitHub API respondió ${r.status}`);return r.json()}
+  async function load(){
+    $('connectionLabel').textContent='SYNC EN PROGRESO';$('dataMode').textContent='FETCHING LIVE DATA';$('refreshBtn').disabled=true;
+    try{
+      const b=await getJson(`${API}/branches?per_page=100`);branches=b;
+      const results=await Promise.all(b.slice(0,20).map(async br=>{try{return await getJson(`${API}/commits?sha=${encodeURIComponent(br.name)}&per_page=8`)}catch(e){return []}}));
+      const seen=new Set();commits=[];results.forEach((list,i)=>list.forEach(c=>{if(!c||!c.sha)return;const branch=branches[i]?.name||'unknown';const key=`${c.sha}:${branch}`;if(seen.has(key))return;seen.add(key);commits.push({sha:c.sha,message:(c.commit?.message||'').split('\n')[0],author:c.commit?.author?.name||c.author?.login||'unknown',date:c.commit?.author?.date||'',url:c.html_url,branch});}));
+      commits.sort((a,b)=>new Date(b.date)-new Date(a.date));
+      $('branchCount').textContent=branches.length;$('commitCount').textContent=commits.length;$('connectionLabel').textContent='GITHUB CONNECTED';$('dataMode').textContent='LIVE GITHUB API';$('pipelineStatus').textContent='READY';$('pipelineSub').textContent='Esperando ejecución manual';$('lastUpdated').textContent='LAST SYNC: '+new Date().toLocaleTimeString();
+      renderBranches();renderGraph();renderCommits();loadActions();
+    }catch(e){$('connectionLabel').textContent='API UNAVAILABLE';$('dataMode').textContent='CONNECTION ERROR';$('graphWrap').innerHTML=`<div class="loading"><p>⚠ ${escapeHtml(e.message)}</p><button class="small-btn" onclick="document.getElementById('refreshBtn').click()">RETRY SYNC</button><p>Comprueba que el repositorio sea público y que la URL esté bien escrita.</p></div>`;toast(e.message)}finally{$('refreshBtn').disabled=false}
+  }
+  function stateLabel(run){
+    if(run.status==='in_progress'||run.status==='queued'||run.status==='waiting'||run.status==='requested')return {label:run.status.toUpperCase().replace('_',' '),cls:'running'};
+    if(run.conclusion==='success')return {label:'SUCCESS',cls:'success'};
+    if(run.conclusion==='failure')return {label:'FAILURE',cls:'failure'};
+    if(run.conclusion==='cancelled')return {label:'CANCELLED',cls:'neutral'};
+    if(run.conclusion==='skipped')return {label:'SKIPPED',cls:'neutral'};
+    return {label:(run.conclusion||run.status||'UNKNOWN').toUpperCase(),cls:'neutral'};
+  }
+  async function loadActions(){
+    const state=$('actionsState'),when=$('actionsWhen'),box=$('actionsRun');
+    if(!state||!box)return;
+    state.textContent='SYNC EN PROGRESO';state.className='actions-state running';
+    try{
+      const data=await getJson(`${API}/actions/runs?per_page=8`);
+      const runs=data.workflow_runs||[];
+      if(!runs.length){state.textContent='SIN EJECUCIONES';state.className='actions-state neutral';when.textContent='No hay runs devueltos por GitHub';box.innerHTML='<div class="actions-empty"><b>No hay ejecuciones registradas.</b><p>Agrega un workflow en .github/workflows/ y haz push para que GitHub Actions genere la primera ejecución.</p><a href="https://github.com/'+OWNER+'/'+REPO+'/actions" target="_blank" rel="noreferrer">ABRIR GITHUB ACTIONS ↗</a></div>';return;}
+      const run=runs[0],st=stateLabel(run);state.textContent=st.label;state.className='actions-state '+st.cls;
+      when.textContent=`Última ejecución · ${new Date(run.updated_at||run.created_at).toLocaleString()}`;
+      box.innerHTML=`<div class="run-header"><div><b>${escapeHtml(run.name||run.display_title||'Workflow')}</b><small>${escapeHtml(run.head_branch||'branch desconocida')} · #${run.run_number} · ${short(run.head_sha)}</small></div><span class="run-badge ${st.cls}">${st.label}</span></div><div class="run-detail"><span>EVENTO <b>${escapeHtml(run.event||'—')}</b></span><span>ACTOR <b>${escapeHtml(run.actor?.login||'—')}</b></span><span>WORKFLOW <b>${escapeHtml(run.path||'—')}</b></span></div><a class="run-link" href="${escapeHtml(run.html_url)}" target="_blank" rel="noreferrer">VER EJECUCIÓN COMPLETA EN GITHUB ↗</a><div class="job-live-list" id="liveJobs"><div class="live-job"><span class="tiny-dot"></span>Consultando jobs de esta ejecución…</div></div>`;
+      try{
+        const jobsData=await getJson(`${API}/actions/runs/${run.id}/jobs?per_page=30`),jobList=jobsData.jobs||[];
+        const live=$('liveJobs');
+        if(!jobList.length){live.innerHTML='<div class="live-job muted">GitHub no devolvió jobs para esta ejecución.</div>';return;}
+        live.innerHTML=jobList.map(j=>{const js=stateLabel({status:j.status,conclusion:j.conclusion});return `<div class="live-job"><span class="job-led ${js.cls}"></span><span class="live-job-name">${escapeHtml(j.name)}</span><span class="live-job-status ${js.cls}">${js.label}</span><small>${j.started_at?new Date(j.started_at).toLocaleTimeString():'—'}</small></div>`}).join('');
+      }catch(jobErr){const live=$('liveJobs');if(live)live.innerHTML='<div class="live-job muted">Estado general disponible; no se pudieron cargar los jobs. Reintenta SYNC ACTIONS.</div>';}
+    }catch(e){state.textContent='NO DISPONIBLE';state.className='actions-state failure';when.textContent='No se pudo consultar GitHub Actions';box.innerHTML=`<div class="actions-empty"><b>${escapeHtml(e.message)}</b><p>Revisa que Actions esté habilitado y que el repositorio sea público. La API pública tiene límites de consultas.</p><a href="https://github.com/${OWNER}/${REPO}/actions" target="_blank" rel="noreferrer">ABRIR GITHUB ACTIONS ↗</a></div>`;}
+  }
+  function renderBranches(){
+    $('branchSummary').textContent=`${branches.length} RAMAS`;const list=$('branchList');list.innerHTML='';
+    const all=document.createElement('button');all.className='branch-chip '+(selectedBranch==='all'?'selected':'');all.innerHTML='<span class="tiny-dot"></span>ALL BRANCHES';all.onclick=()=>{selectedBranch='all';renderBranches();renderGraph();renderCommits()};list.appendChild(all);
+    branches.forEach(b=>{const el=document.createElement('button');el.className='branch-chip '+(selectedBranch===b.name?'selected':'');el.innerHTML=`<span class="tiny-dot" style="background:${colors(b.name)}"></span>${escapeHtml(b.name)}`;el.title='Ver commits de '+b.name;el.onclick=()=>{selectedBranch=b.name;renderBranches();renderGraph();renderCommits()};list.appendChild(el)});
+  }
+  function renderGraph(){
+    const svg=$('branchGraph'),wrap=$('graphWrap');wrap.querySelector('.loading')?.remove();const W=Math.max(520,wrap.clientWidth||700),H=370;svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.innerHTML='';
+    const NS='http://www.w3.org/2000/svg';const add=(tag,attrs,parent=svg,textVal)=>{const e=document.createElementNS(NS,tag);Object.entries(attrs||{}).forEach(([k,v])=>e.setAttribute(k,v));if(textVal!==undefined)e.textContent=textVal;parent.appendChild(e);return e};
+    const shown=selectedBranch==='all'?branches:branches.filter(b=>b.name===selectedBranch);if(!shown.length){add('text',{x:24,y:40,class:'graph-label'},svg,'No se encontraron ramas para mostrar.');return}
+    const left=selectedBranch==='all'?155:115,right=30,plotW=W-left-right;const lanes=shown.slice(0,12);const laneGap=Math.max(22,Math.min(39,(H-70)/Math.max(lanes.length,1)));const y0=34;
+    lanes.forEach((b,i)=>{const y=y0+i*laneGap;const color=colors(b.name);add('line',{x1:left,y1:y,x2:W-right,y2:y,stroke:'#1b2b43','stroke-width':1});add('text',{x:10,y:y+4,class:'graph-label',fill:color,style:`fill:${color}`},svg,b.name.length>19?b.name.slice(0,18)+'…':b.name);const branchCommits=commits.filter(c=>c.branch===b.name).slice(0,6);const count=Math.max(branchCommits.length,1);const xs=branchCommits.map((c,j)=>left+20+j*(Math.max(0,plotW-60)/Math.max(1,count-1)));if(xs.length>1)add('path',{d:xs.map((x,j)=>(j?'L':'M')+x+' '+y).join(' '),class:'graph-line pulse',stroke:color});if(!branchCommits.length){add('circle',{cx:left+20,cy:y,r:4,fill:color,opacity:.6});add('text',{x:left+32,y:y+3,class:'graph-sha'},svg,'No recent commits returned');}branchCommits.forEach((c,j)=>{const x=xs[j];const g=add('g',{class:'commit-node',tabindex:'0',role:'button','aria-label':c.message});add('circle',{cx:x,cy:y,r:4.5,fill:color,stroke:'#08101c','stroke-width':2},g);add('title',{},g,`${b.name}\n${short(c.sha)} · ${c.message}`);if(j===branchCommits.length-1||j===0)add('text',{x:x,y:y-9,class:'graph-sha','text-anchor':'middle'},g,short(c.sha));g.addEventListener('click',()=>{if(c.url)window.open(c.url,'_blank','noopener')});});});
+    if(branches.length>12)add('text',{x:W-15,y:H-8,class:'graph-sha','text-anchor':'end'},svg,`+ ${branches.length-12} ramas más en inventario`);
+    add('text',{x:left,y:H-10,class:'graph-sha'},svg,'OLDER  ←  COMMIT HISTORY  →  RECENT');
+  }
+  function renderCommits(){const rows=commits.filter(c=>selectedBranch==='all'||c.branch===selectedBranch).slice(0,14);$('activityCount').textContent=`${rows.length} EVENTS`;const body=$('commitTable');if(!rows.length){body.innerHTML='<tr><td colspan="5" class="empty">No hay commits recientes devueltos para este filtro.</td></tr>';return}body.innerHTML=rows.map(c=>`<tr><td><a style="color:var(--cyan);text-decoration:none" href="${escapeHtml(c.url)}" target="_blank" rel="noreferrer">${short(c.sha)}</a></td><td title="${escapeHtml(c.message)}">${escapeHtml(c.message||'(sin mensaje)')}</td><td><span class="branch-tag">${escapeHtml(c.branch)}</span></td><td>${escapeHtml(c.author)}</td><td>${c.date?new Date(c.date).toLocaleString():'—'}</td></tr>`).join('')}
+  $('refreshBtn').addEventListener('click',load);$('refreshActionsBtn')?.addEventListener('click',loadActions);$('allBranchesBtn').addEventListener('click',()=>{selectedBranch='all';renderBranches();renderGraph();renderCommits()});
+  const jobs=[...document.querySelectorAll('.job')];jobs.forEach((j,i)=>j.addEventListener('click',()=>{jobs.forEach(x=>x.classList.remove('active'));j.classList.add('active');toast(`Job ${i+1}: ${j.querySelector('b').textContent}. Usa RUN DEMO PIPELINE para animar el flujo completo.`)}));
+  $('runPipeline').addEventListener('click',async()=>{const token=++runToken;const btn=$('runPipeline');btn.disabled=true;$('pipelineStatus').textContent='RUNNING';$('pipelineSub').textContent='Simulación de entrega en curso';jobs.forEach(j=>{j.classList.remove('active','done','failed');j.querySelector('.job-state').textContent='WAIT'});document.querySelectorAll('.env-card').forEach(e=>e.classList.remove('active','done'));const envs=[...document.querySelectorAll('.env-card')];for(let i=0;i<jobs.length;i++){if(token!==runToken)return;jobs[i].classList.add('active');jobs[i].querySelector('.job-state').textContent='RUNNING';await new Promise(r=>setTimeout(r,650));if(token!==runToken)return;jobs[i].classList.remove('active');jobs[i].classList.add('done');jobs[i].querySelector('.job-state').textContent='PASS';if(i===0)envs[0].classList.add('active');if(i===1){envs[0].classList.remove('active');envs[0].classList.add('done');envs[1].classList.add('active')}if(i===2){envs[1].classList.remove('active');envs[1].classList.add('done');envs[2].classList.add('active')}if(i===3){envs[2].classList.remove('active');envs[2].classList.add('done');envs[3].classList.add('active')}if(i===4){envs[3].classList.remove('active');envs[3].classList.add('done')}}$('pipelineStatus').textContent='SUCCESS';$('pipelineSub').textContent='Demo completada · no se ejecutó un deploy real';btn.disabled=false;toast('Demo pipeline completada. No se realizaron cambios en AWS, Azure ni GitHub Actions.');});
+  load();
+})();
+
+
+// Module navigation: highlight the active section and keep all dashboard areas reachable.
+(() => {
+  const links = [...document.querySelectorAll('.module-nav .nav-item')];
+  const targets = links.map(link => document.querySelector(link.getAttribute('href'))).filter(Boolean);
+  const setActive = id => links.forEach(link => link.classList.toggle('active', link.getAttribute('href') === '#' + id));
+  links.forEach(link => link.addEventListener('click', () => setActive(link.getAttribute('href').slice(1))));
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry => entry.isIntersecting).sort((a,b) => b.intersectionRatio-a.intersectionRatio)[0];
+      if (visible) setActive(visible.target.id);
+    }, {rootMargin:'-18% 0px -65% 0px', threshold:[0,.1,.25,.5]});
+    targets.forEach(target => observer.observe(target));
+  }
+})();
+
+
+// Interactive per-module flow diagrams: every node can be tapped to inspect its role.
+(() => {
+  const descriptions = {
+    'PLAN':'Definir objetivo, alcance, responsables y criterios de aceptación.',
+    'CODE':'Crear o modificar código de aplicación e infraestructura como código.',
+    'BUILD':'Resolver dependencias y producir un artefacto reproducible.',
+    'SECURE':'Ejecutar controles preventivos de secretos, dependencias y código.',
+    'TEST':'Validar comportamiento, calidad y compatibilidad antes de liberar.',
+    'RELEASE':'Publicar una versión trazable en el entorno objetivo.',
+    'OBSERVE':'Medir salud, detectar desviaciones y alimentar la mejora continua.',
+    'ISSUE':'Registrar la necesidad y enlazarla con el cambio de software.',
+    'FEATURE BRANCH':'Aislar el trabajo para no afectar la rama principal.',
+    'COMMIT':'Guardar un cambio identificado por SHA y mensaje.',
+    'PULL REQUEST':'Proponer la integración y ejecutar validaciones automáticas.',
+    'REVIEW':'Revisar código, pruebas, seguridad y reglas de equipo.',
+    'MERGE':'Integrar el cambio aprobado en la rama de destino.',
+    'PUSH / PR':'Un push o pull request inicia el workflow configurado.',
+    'VALIDATE':'Comprobar estructura, formato y condiciones básicas.',
+    'SECURITY SCAN':'Buscar riesgos conocidos antes de empaquetar o desplegar.',
+    'TESTS':'Ejecutar pruebas automatizadas y publicar resultados.',
+    'PACKAGE':'Versionar el artefacto para mantener trazabilidad.',
+    'DEPLOY':'Entregar el artefacto al entorno permitido por la política.',
+    'SECRET SCAN':'Detectar credenciales expuestas en el repositorio.',
+    'SAST / SCA':'Analizar patrones de código y componentes de terceros.',
+    'DEPENDENCY CHECK':'Comparar dependencias con vulnerabilidades conocidas.',
+    'POLICY GATE':'Evaluar reglas de seguridad y bloquear incumplimientos.',
+    'FINDING / PASS':'Registrar hallazgos o continuar si los controles pasan.',
+    'IDENTITY':'Identificar usuario, workload o servicio solicitante.',
+    'RBAC':'Aplicar permisos según rol y mínimo privilegio.',
+    'POLICY AS CODE':'Evaluar controles declarativos de forma repetible.',
+    'TAG / BUDGET RULES':'Validar ownership, centro de costo y etiquetas requeridas.',
+    'COMPLIANCE EVAL':'Comparar la configuración contra el estándar esperado.',
+    'AUDIT EVIDENCE':'Conservar evidencia de quién cambió qué y cuándo.',
+    'GIT / IaC':'Versionar la definición deseada de infraestructura.',
+    'TERRAFORM PLAN':'Calcular los cambios propuestos antes de aplicarlos.',
+    'NETWORK / IAM':'Configurar límites de red e identidades de servicio.',
+    'COMPUTE / K8S':'Alojar cargas en máquinas virtuales, contenedores o Kubernetes.',
+    'DATA SERVICES':'Conectar bases de datos y almacenamiento en zonas protegidas.',
+    'HEALTH CHECK':'Verificar disponibilidad y estado posterior al cambio.',
+    'METRICS':'Recolectar medidas numéricas de la plataforma.',
+    'LOGS / TRACES':'Correlacionar eventos y recorrido de las solicitudes.',
+    'COLLECTOR':'Centralizar y normalizar la telemetría.',
+    'DASHBOARD':'Visualizar tendencias, SLI y salud del servicio.',
+    'ALERT RULE':'Disparar alertas según umbrales o anomalías.',
+    'INCIDENT':'Clasificar, priorizar y asignar el evento operativo.',
+    'REMEDIATION':'Mitigar, resolver y documentar la causa raíz.',
+    'BILLING EXPORT':'Obtener datos de facturación desde el proveedor cloud.',
+    'NORMALIZE COST':'Normalizar cuentas, servicios, moneda y periodo.',
+    'ALLOCATE TAGS':'Asignar gasto a equipo, producto o centro de costo.',
+    'BUDGET CHECK':'Comparar consumo con presupuesto y previsión.',
+    'ANOMALY DETECT':'Identificar variaciones inusuales de gasto.',
+    'SHOWBACK':'Informar consumo por área o producto.',
+    'OPTIMIZE':'Priorizar acciones de ahorro sin romper el servicio.',
+    'USER / CLIENT':'Una persona o sistema solicita acceder al servicio.',
+    'IDENTITY PROVIDER':'Verificar identidad con el proveedor de autenticación.',
+    'AUTHN':'Autenticar al usuario o workload.',
+    'RBAC / AUTHZ':'Autorizar solo las acciones permitidas.',
+    'API GATEWAY':'Aplicar rutas, límites y controles de entrada.',
+    'APPLICATION':'Procesar la solicitud de negocio.',
+    'DATA SERVICE':'Consultar datos usando credenciales y red restringidas.',
+    'AUTHOR / SHA':'Vincular identidad del autor con el hash del commit.',
+    'WORKFLOW RUN':'Registrar evento, rama, workflow y número de ejecución.',
+    'JOB RESULTS':'Conservar estado, logs y duración de cada job.',
+    'RELEASE RECORD':'Relacionar versión, artefacto y destino.',
+    'AUDIT LOG':'Mantener una línea de tiempo consultable de cambios.'
+  };
+  document.querySelectorAll('.module-flow').forEach(flow => {
+    const nodes=[...flow.querySelectorAll('.flow-node')],detail=flow.querySelector('.flow-detail');
+    nodes.forEach(node => {
+      node.setAttribute('tabindex','0');node.setAttribute('role','button');
+      const name=node.querySelector('b')?.textContent?.trim()||'';
+      node.setAttribute('aria-label',name);
+      const select=()=>{nodes.forEach(n=>n.classList.remove('selected'));node.classList.add('selected');detail.textContent=(descriptions[name]||'Etapa del flujo operativo de este módulo.')+' Este diagrama es conceptual y no implica que el conector esté habilitado.';};
+      node.addEventListener('click',select);node.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select();}});
+    });
+    if(nodes.length){nodes[0].classList.add('selected');const name=nodes[0].querySelector('b')?.textContent?.trim()||'';detail.textContent=(descriptions[name]||'Etapa inicial del flujo operativo.')+' Selecciona cualquier etapa para más detalle.';}
+  });
+})();
+
+
+// Provider-aware architecture explorer: interactive reference components, not live cloud inventory.
+(() => {
+ const architectures = {
+  aws: [
+   ['EDGE','Route 53 + CloudFront','DNS, edge delivery','Routes users to the nearest edge and can cache static content.'],
+   ['PROTECTION','AWS WAF','Web application firewall','Filters common web exploits and malicious request patterns before they reach the app.'],
+   ['INGRESS','Application Load Balancer','Layer 7 routing','Distributes HTTP/HTTPS traffic and routes by host or path to healthy targets.'],
+   ['NETWORK','VPC + public/private subnets','Network isolation','VPC defines the network boundary; public subnets host controlled ingress and private subnets isolate workloads.'],
+   ['ACCESS','Security Groups + IAM','Least privilege','Security groups constrain network paths; IAM roles grant workload permissions without hard-coded credentials.'],
+   ['COMPUTE','EKS / ECS / EC2 / Lambda','Application runtime','Choose Kubernetes, managed containers, virtual machines, or serverless based on workload needs.'],
+   ['SECRETS','Secrets Manager + KMS','Secrets and encryption','Stores secrets and manages encryption keys; use rotation and scoped access policies.'],
+   ['DATA','RDS / DynamoDB / S3','Protected data layer','Keep databases private, encrypt data, back up critical records, and grant only required service access.']
+  ],
+  azure: [
+   ['EDGE','Azure DNS + Front Door','Global entry point','Provides global routing and optional edge acceleration for internet-facing applications.'],
+   ['PROTECTION','Application Gateway WAF','Web application firewall','Inspects web traffic and blocks common web attacks before requests reach application services.'],
+   ['INGRESS','Application Gateway / Load Balancer','Traffic distribution','Application Gateway handles HTTP-aware routing; Load Balancer distributes network traffic.'],
+   ['NETWORK','VNet + subnets','Network isolation','VNet contains isolated address space; subnet boundaries separate ingress, apps, and data tiers.'],
+   ['ACCESS','NSG + Azure RBAC + Managed Identity','Least privilege','NSGs filter network flows; RBAC and managed identities limit control-plane and service access.'],
+   ['COMPUTE','AKS / App Service / VM / Functions','Application runtime','Use managed Kubernetes, platform web hosting, virtual machines, or serverless functions.'],
+   ['SECRETS','Key Vault + Private Endpoint','Secrets and private access','Store keys and secrets in Key Vault and restrict access through private connectivity and identity.'],
+   ['DATA','Azure SQL / Cosmos DB / Storage','Protected data layer','Use private connectivity, encryption, backups, and role-scoped access for data services.']
+  ],
+  hybrid: [
+   ['EDGE','Public DNS + CDN','Global entry point','Publishes only the required entry points and accelerates content where appropriate.'],
+   ['PROTECTION','WAF + DDoS protection','Perimeter controls','Apply web filtering and network-level denial-of-service protection at the exposed boundary.'],
+   ['INGRESS','Reverse proxy / load balancer','Controlled ingress','Terminate TLS, health-check targets, and route traffic only to approved services.'],
+   ['NETWORK','Cloud VPC/VNet + on-prem VLANs','Segmentation','Separate tiers and connect environments with VPN or private circuits using explicit routes.'],
+   ['ACCESS','Federated IAM + firewall rules','Unified access control','Use federated identity, short-lived credentials, least privilege, and reviewed network policies.'],
+   ['COMPUTE','Kubernetes + VMs + PaaS','Mixed workloads','Place workloads according to latency, compliance, operations, and portability requirements.'],
+   ['SECRETS','Vault / Key Vault / Secrets Manager','Central secret handling','Avoid secrets in source code and synchronize access through a controlled secrets service.'],
+   ['DATA','Managed DB + on-prem DB + backup','Resilient data layer','Control data movement, encryption, backup retention, recovery objectives, and residency constraints.']
+  ]
+ };
+ const flow=document.getElementById('archFlow'), detail=document.getElementById('archDetail'), diagram=document.getElementById('archDiagram');
+ if(!flow||!detail||!diagram)return;
+ const tabs=[...document.querySelectorAll('.arch-tab')];
+ const esc=(v)=>String(v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+ const diagramModels={
+  aws:{label:'AWS CLOUD',outer:'AWS VPC · REGION',nodes:[['USERS / INTERNET',80,25,180,48,0],['ROUTE 53 + CLOUDFRONT',350,25,250,48,0],['AWS WAF',690,25,180,48,1],['APPLICATION LOAD BALANCER',350,115,250,50,2],['PUBLIC SUBNET · INGRESS',75,205,240,56,3],['PRIVATE SUBNET · APP TIER',360,205,240,56,5],['PRIVATE DATA SUBNET',650,205,220,56,7],['IAM · SECURITY GROUPS',80,325,240,52,4],['SECRETS MANAGER · KMS',360,325,240,52,6],['RDS · DYNAMODB · S3',650,325,220,52,7]],links:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[5,7],[6,8],[7,9],[8,9]]},
+  azure:{label:'MICROSOFT AZURE',outer:'AZURE VNET · REGION',nodes:[['USERS / INTERNET',80,25,180,48,0],['AZURE DNS + FRONT DOOR',350,25,250,48,0],['APPLICATION GATEWAY WAF',690,25,180,48,1],['APP GATEWAY / LOAD BALANCER',350,115,250,50,2],['INGRESS SUBNET · NSG',75,205,240,56,3],['PRIVATE APP SUBNET · AKS / APP',360,205,240,56,5],['PRIVATE DATA SUBNET',650,205,220,56,7],['RBAC · MANAGED IDENTITY',80,325,240,52,4],['KEY VAULT · PRIVATE ENDPOINT',360,325,240,52,6],['AZURE SQL · COSMOS · STORAGE',650,325,220,52,7]],links:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[5,7],[6,8],[7,9],[8,9]]},
+  hybrid:{label:'HYBRID CLOUD',outer:'CLOUD VPC/VNET + ON-PREMISES NETWORK',nodes:[['USERS / INTERNET',45,25,170,48,0],['DNS / CDN',260,25,150,48,0],['WAF / EDGE FIREWALL',460,25,190,48,1],['REVERSE PROXY / LB',700,25,190,48,2],['CLOUD VPC / VNET',60,150,390,180,3],['K8S / VMs / PaaS',90,205,160,55,5],['PRIVATE CLOUD DATA',270,205,150,55,7],['VPN / PRIVATE CIRCUIT',490,205,170,55,3],['ON-PREMISES VLAN / FIREWALL',700,150,190,55,4],['ON-PREM APPS / DATABASES',700,245,190,55,7],['FEDERATED IAM / SECRETS',330,365,330,48,4]],links:[[0,1],[1,2],[2,3],[3,4],[4,5],[4,6],[6,7],[7,8],[8,9],[5,10],[9,10]]}
+ };
+ function renderDiagram(provider,selected=0){
+  const m=diagramModels[provider];
+  const isHybrid=provider==='hybrid';
+  const box=isHybrid?{x:45,y:125,w:420,h:220}:{x:45,y:125,w:850,h:225};
+  let svg=`<svg viewBox="0 0 960 445" role="img" aria-label="${esc(m.label)} architecture flow diagram"><defs><marker id="arrow-${provider}" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#3de4ff"/></marker></defs><text x="24" y="18" class="diagram-kicker">${esc(m.label)} / TRAFFIC + TRUST BOUNDARIES</text>`;
+  if(!isHybrid) svg+=`<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="12" class="diagram-boundary"/><text x="62" y="146" class="diagram-boundary-label">${esc(m.outer)}</text>`;
+  else svg+=`<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="12" class="diagram-boundary"/><text x="62" y="145" class="diagram-boundary-label">${esc(m.outer)}</text>`;
+  m.links.forEach(([a,b])=>{const A=m.nodes[a],B=m.nodes[b],x1=A[1]+A[3]/2,y1=A[2]+A[4]/2,x2=B[1]+B[3]/2,y2=B[2]+B[4]/2;let sx=x1,sy=y1,ex=x2,ey=y2;if(Math.abs(x2-x1)>Math.abs(y2-y1)){sx=x1+(x2>x1?A[3]/2:-A[3]/2);ex=x2+(x1>x2?B[3]/2:-B[3]/2)}else{sy=y1+(y2>y1?A[4]/2:-A[4]/2);ey=y2+(y1>y2?B[4]/2:-B[4]/2)}svg+=`<path d="M${sx} ${sy} L${ex} ${ey}" class="diagram-link" marker-end="url(#arrow-${provider})"/>`});
+  m.nodes.forEach((n,i)=>{const [label,x,y,w,h,idx]=n;svg+=`<g class="diagram-node${idx===selected?' selected':''}" data-index="${idx}" tabindex="0" role="button" aria-label="Inspect ${esc(label)}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7"/><text x="${x+w/2}" y="${y+h/2-2}">${esc(label.length>25?label.slice(0,24)+'…':label)}</text><text x="${x+w/2}" y="${y+h/2+13}" class="diagram-index">COMPONENT ${String(idx+1).padStart(2,'0')}</text></g>`});
+  svg+=`<text x="24" y="430" class="diagram-foot">SCHEMATIC · NOT A LIVE RESOURCE INVENTORY · SELECT A NODE TO INSPECT</text></svg>`;diagram.innerHTML=svg;
+ }
+ function render(provider){
+  tabs.forEach(t=>t.classList.toggle('active',t.dataset.arch===provider));
+  flow.innerHTML=architectures[provider].map((c,i)=>`<button class="arch-component${i===0?' selected':''}" type="button" data-index="${i}"><span>${c[0]}</span><b>${c[1]}</b><small>${c[2]}</small></button>`).join('');
+  const choose=(i)=>{[...flow.children].forEach(n=>n.classList.toggle('selected',Number(n.dataset.index)===i));const c=architectures[provider][i];detail.innerHTML=`<b>${provider.toUpperCase()} / ${c[1]}</b><span>${c[3]}</span><span><em>Control recomendado:</em> validar ownership, logging, cifrado, acceso mínimo y configuración mediante IaC/policy-as-code cuando aplique.</span>`;renderDiagram(provider,i);diagram.querySelectorAll('.diagram-node').forEach(node=>{const activate=()=>choose(Number(node.dataset.index));node.addEventListener('click',activate);node.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();activate()}})});};
+  [...flow.children].forEach((node,i)=>node.addEventListener('click',()=>choose(i)));choose(0);
+ }
+ tabs.forEach(t=>t.addEventListener('click',()=>render(t.dataset.arch)));render('aws');
+})();
