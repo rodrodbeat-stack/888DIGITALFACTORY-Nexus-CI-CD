@@ -20,3 +20,29 @@ html{scroll-behavior:smooth;scroll-padding-top:18px}.module-nav{display:flex;gap
 html{scroll-behavior:smooth;scroll-padding-top:78px}
 #overview,#source-control,#delivery,#security,#governance,#infrastructure,#observability,#finops,#applications,#audit,#live-actions,#environments{scroll-margin-top:82px}
 @media(max-width:600px){.module-nav{margin:0 -2px 4px;padding:9px 2px 11px;gap:6px}.module-nav .nav-item{min-height:35px;padding:8px 10px;font-size:9px}.module-nav .nav-item span{min-width:20px;height:18px;font-size:8px}}
+
+
+/* Per-module operational flow diagrams */
+.module-flow{margin:0 0 17px;padding:14px;border:1px solid #24334c;background:linear-gradient(110deg,#0b1422,#101226);position:relative;overflow:hidden}
+.module-flow:before{content:"";position:absolute;left:0;top:0;width:3px;height:100%;background:linear-gradient(var(--cyan),var(--purple));opacity:.8}
+.flow-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.flow-heading span{font-size:8px;letter-spacing:1.5px;color:var(--cyan)}
+.flow-heading h3{font:600 12px Orbitron,monospace;letter-spacing:.7px;margin:6px 0 0;color:#e7edff}
+.flow-heading>small{font-size:8px;color:#647493;letter-spacing:.7px;text-align:right}
+.flow-track{display:flex;align-items:stretch;gap:5px;overflow-x:auto;padding:2px 2px 9px;scrollbar-color:#314765 #0b1020;scrollbar-width:thin}
+.flow-node{position:relative;flex:1 0 88px;min-width:88px;max-width:150px;min-height:62px;padding:9px 8px;border:1px solid #2b3b56;background:#111a2b;display:flex;flex-direction:column;justify-content:space-between;gap:8px;cursor:pointer;transition:border-color .2s,background .2s,transform .2s}
+.flow-node span{font-size:8px;color:#7184a7;letter-spacing:1px}
+.flow-node b{font-size:9px;line-height:1.35;font-weight:600;color:#dce7ff;overflow-wrap:anywhere}
+.flow-node.selected{border-color:var(--cyan);background:#102738;box-shadow:inset 0 -2px var(--cyan)}
+.flow-node.selected span{color:var(--cyan)}
+.flow-arrow{display:flex;align-items:center;justify-content:center;flex:0 0 15px;color:#4b82a8;font-size:13px;position:relative}
+.flow-arrow:after{content:"";position:absolute;left:0;right:0;bottom:7px;border-bottom:1px dashed #37516d;animation:flowDash 1.8s linear infinite}
+@keyframes flowDash{to{transform:translateX(5px);opacity:.35}}
+.flow-detail{margin:7px 0 0;padding-top:9px;border-top:1px solid #1f2c43;color:#8191af;font-size:9px;line-height:1.6;min-height:24px}
+.module-nav{display:flex;gap:7px;overflow-x:auto;padding:11px 0 15px;scrollbar-width:thin;scrollbar-color:#30435f transparent}
+.module-nav .nav-item{display:flex;align-items:center;gap:7px;flex:0 0 auto;min-height:38px;padding:0 12px;border:1px solid #263650;background:#0d1422;color:#9cabc7;text-decoration:none;font-size:9px;letter-spacing:.65px;white-space:nowrap;transition:.2s}
+.module-nav .nav-item span{display:inline-grid;place-items:center;width:22px;height:22px;border:1px solid #344761;color:var(--cyan);font-size:8px}
+.module-nav .nav-item.active{border-color:#3de4ff88;background:#102334;color:#f0f7ff;box-shadow:inset 0 -2px var(--cyan)}
+.module-nav .nav-item.active span{background:#14374a;border-color:var(--cyan)}
+@media(max-width:600px){.module-flow{padding:11px}.flow-heading{flex-direction:column;gap:6px}.flow-heading>small{text-align:left}.flow-node{flex-basis:90px;min-width:90px}.module-nav .nav-item{min-height:42px;padding:0 10px}}
+@media(prefers-reduced-motion:reduce){.flow-arrow:after{animation:none}.pulse{animation:none}}

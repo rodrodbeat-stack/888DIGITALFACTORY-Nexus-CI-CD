@@ -82,3 +82,83 @@
     targets.forEach(target => observer.observe(target));
   }
 })();
+
+
+// Interactive per-module flow diagrams: every node can be tapped to inspect its role.
+(() => {
+  const descriptions = {
+    'PLAN':'Definir objetivo, alcance, responsables y criterios de aceptación.',
+    'CODE':'Crear o modificar código de aplicación e infraestructura como código.',
+    'BUILD':'Resolver dependencias y producir un artefacto reproducible.',
+    'SECURE':'Ejecutar controles preventivos de secretos, dependencias y código.',
+    'TEST':'Validar comportamiento, calidad y compatibilidad antes de liberar.',
+    'RELEASE':'Publicar una versión trazable en el entorno objetivo.',
+    'OBSERVE':'Medir salud, detectar desviaciones y alimentar la mejora continua.',
+    'ISSUE':'Registrar la necesidad y enlazarla con el cambio de software.',
+    'FEATURE BRANCH':'Aislar el trabajo para no afectar la rama principal.',
+    'COMMIT':'Guardar un cambio identificado por SHA y mensaje.',
+    'PULL REQUEST':'Proponer la integración y ejecutar validaciones automáticas.',
+    'REVIEW':'Revisar código, pruebas, seguridad y reglas de equipo.',
+    'MERGE':'Integrar el cambio aprobado en la rama de destino.',
+    'PUSH / PR':'Un push o pull request inicia el workflow configurado.',
+    'VALIDATE':'Comprobar estructura, formato y condiciones básicas.',
+    'SECURITY SCAN':'Buscar riesgos conocidos antes de empaquetar o desplegar.',
+    'TESTS':'Ejecutar pruebas automatizadas y publicar resultados.',
+    'PACKAGE':'Versionar el artefacto para mantener trazabilidad.',
+    'DEPLOY':'Entregar el artefacto al entorno permitido por la política.',
+    'SECRET SCAN':'Detectar credenciales expuestas en el repositorio.',
+    'SAST / SCA':'Analizar patrones de código y componentes de terceros.',
+    'DEPENDENCY CHECK':'Comparar dependencias con vulnerabilidades conocidas.',
+    'POLICY GATE':'Evaluar reglas de seguridad y bloquear incumplimientos.',
+    'FINDING / PASS':'Registrar hallazgos o continuar si los controles pasan.',
+    'IDENTITY':'Identificar usuario, workload o servicio solicitante.',
+    'RBAC':'Aplicar permisos según rol y mínimo privilegio.',
+    'POLICY AS CODE':'Evaluar controles declarativos de forma repetible.',
+    'TAG / BUDGET RULES':'Validar ownership, centro de costo y etiquetas requeridas.',
+    'COMPLIANCE EVAL':'Comparar la configuración contra el estándar esperado.',
+    'AUDIT EVIDENCE':'Conservar evidencia de quién cambió qué y cuándo.',
+    'GIT / IaC':'Versionar la definición deseada de infraestructura.',
+    'TERRAFORM PLAN':'Calcular los cambios propuestos antes de aplicarlos.',
+    'NETWORK / IAM':'Configurar límites de red e identidades de servicio.',
+    'COMPUTE / K8S':'Alojar cargas en máquinas virtuales, contenedores o Kubernetes.',
+    'DATA SERVICES':'Conectar bases de datos y almacenamiento en zonas protegidas.',
+    'HEALTH CHECK':'Verificar disponibilidad y estado posterior al cambio.',
+    'METRICS':'Recolectar medidas numéricas de la plataforma.',
+    'LOGS / TRACES':'Correlacionar eventos y recorrido de las solicitudes.',
+    'COLLECTOR':'Centralizar y normalizar la telemetría.',
+    'DASHBOARD':'Visualizar tendencias, SLI y salud del servicio.',
+    'ALERT RULE':'Disparar alertas según umbrales o anomalías.',
+    'INCIDENT':'Clasificar, priorizar y asignar el evento operativo.',
+    'REMEDIATION':'Mitigar, resolver y documentar la causa raíz.',
+    'BILLING EXPORT':'Obtener datos de facturación desde el proveedor cloud.',
+    'NORMALIZE COST':'Normalizar cuentas, servicios, moneda y periodo.',
+    'ALLOCATE TAGS':'Asignar gasto a equipo, producto o centro de costo.',
+    'BUDGET CHECK':'Comparar consumo con presupuesto y previsión.',
+    'ANOMALY DETECT':'Identificar variaciones inusuales de gasto.',
+    'SHOWBACK':'Informar consumo por área o producto.',
+    'OPTIMIZE':'Priorizar acciones de ahorro sin romper el servicio.',
+    'USER / CLIENT':'Una persona o sistema solicita acceder al servicio.',
+    'IDENTITY PROVIDER':'Verificar identidad con el proveedor de autenticación.',
+    'AUTHN':'Autenticar al usuario o workload.',
+    'RBAC / AUTHZ':'Autorizar solo las acciones permitidas.',
+    'API GATEWAY':'Aplicar rutas, límites y controles de entrada.',
+    'APPLICATION':'Procesar la solicitud de negocio.',
+    'DATA SERVICE':'Consultar datos usando credenciales y red restringidas.',
+    'AUTHOR / SHA':'Vincular identidad del autor con el hash del commit.',
+    'WORKFLOW RUN':'Registrar evento, rama, workflow y número de ejecución.',
+    'JOB RESULTS':'Conservar estado, logs y duración de cada job.',
+    'RELEASE RECORD':'Relacionar versión, artefacto y destino.',
+    'AUDIT LOG':'Mantener una línea de tiempo consultable de cambios.'
+  };
+  document.querySelectorAll('.module-flow').forEach(flow => {
+    const nodes=[...flow.querySelectorAll('.flow-node')],detail=flow.querySelector('.flow-detail');
+    nodes.forEach(node => {
+      node.setAttribute('tabindex','0');node.setAttribute('role','button');
+      const name=node.querySelector('b')?.textContent?.trim()||'';
+      node.setAttribute('aria-label',name);
+      const select=()=>{nodes.forEach(n=>n.classList.remove('selected'));node.classList.add('selected');detail.textContent=(descriptions[name]||'Etapa del flujo operativo de este módulo.')+' Este diagrama es conceptual y no implica que el conector esté habilitado.';};
+      node.addEventListener('click',select);node.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select();}});
+    });
+    if(nodes.length){nodes[0].classList.add('selected');const name=nodes[0].querySelector('b')?.textContent?.trim()||'';detail.textContent=(descriptions[name]||'Etapa inicial del flujo operativo.')+' Selecciona cualquier etapa para más detalle.';}
+  });
+})();

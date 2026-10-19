@@ -21,3 +21,7 @@ Sube `index.html`, `styles.css`, `app.js` y `README.md` a la raíz del repositor
 
 ## Transparencia de datos
 Los datos de branches, commits y Actions proceden de la API pública de GitHub cuando el repositorio y sus ejecuciones son accesibles. El pipeline visual es demostrativo. Los paneles de Security, Governance, Infrastructure, Observability, FinOps y Applications incluyen vistas de referencia y **no muestran métricas reales** hasta integrar las APIs o proveedores correspondientes. No se requieren tokens para las consultas públicas actuales; no pongas secretos en archivos frontend.
+
+
+## Diagramas por módulo
+Cada sección del dashboard incorpora su propio diagrama de flujo interactivo. Pulsa una etapa para ver su función. Los diagramas describen el flujo operativo de referencia; solo GitHub branches, commits y Actions se consultan en vivo si la API pública los devuelve.
