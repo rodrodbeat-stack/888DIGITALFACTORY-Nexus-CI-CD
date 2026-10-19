@@ -198,13 +198,30 @@
    ['DATA','Managed DB + on-prem DB + backup','Resilient data layer','Control data movement, encryption, backup retention, recovery objectives, and residency constraints.']
   ]
  };
- const flow=document.getElementById('archFlow'), detail=document.getElementById('archDetail');
- if(!flow||!detail)return;
+ const flow=document.getElementById('archFlow'), detail=document.getElementById('archDetail'), diagram=document.getElementById('archDiagram');
+ if(!flow||!detail||!diagram)return;
  const tabs=[...document.querySelectorAll('.arch-tab')];
+ const esc=(v)=>String(v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+ const diagramModels={
+  aws:{label:'AWS CLOUD',outer:'AWS VPC · REGION',nodes:[['USERS / INTERNET',80,25,180,48,0],['ROUTE 53 + CLOUDFRONT',350,25,250,48,0],['AWS WAF',690,25,180,48,1],['APPLICATION LOAD BALANCER',350,115,250,50,2],['PUBLIC SUBNET · INGRESS',75,205,240,56,3],['PRIVATE SUBNET · APP TIER',360,205,240,56,5],['PRIVATE DATA SUBNET',650,205,220,56,7],['IAM · SECURITY GROUPS',80,325,240,52,4],['SECRETS MANAGER · KMS',360,325,240,52,6],['RDS · DYNAMODB · S3',650,325,220,52,7]],links:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[5,7],[6,8],[7,9],[8,9]]},
+  azure:{label:'MICROSOFT AZURE',outer:'AZURE VNET · REGION',nodes:[['USERS / INTERNET',80,25,180,48,0],['AZURE DNS + FRONT DOOR',350,25,250,48,0],['APPLICATION GATEWAY WAF',690,25,180,48,1],['APP GATEWAY / LOAD BALANCER',350,115,250,50,2],['INGRESS SUBNET · NSG',75,205,240,56,3],['PRIVATE APP SUBNET · AKS / APP',360,205,240,56,5],['PRIVATE DATA SUBNET',650,205,220,56,7],['RBAC · MANAGED IDENTITY',80,325,240,52,4],['KEY VAULT · PRIVATE ENDPOINT',360,325,240,52,6],['AZURE SQL · COSMOS · STORAGE',650,325,220,52,7]],links:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[5,7],[6,8],[7,9],[8,9]]},
+  hybrid:{label:'HYBRID CLOUD',outer:'CLOUD VPC/VNET + ON-PREMISES NETWORK',nodes:[['USERS / INTERNET',45,25,170,48,0],['DNS / CDN',260,25,150,48,0],['WAF / EDGE FIREWALL',460,25,190,48,1],['REVERSE PROXY / LB',700,25,190,48,2],['CLOUD VPC / VNET',60,150,390,180,3],['K8S / VMs / PaaS',90,205,160,55,5],['PRIVATE CLOUD DATA',270,205,150,55,7],['VPN / PRIVATE CIRCUIT',490,205,170,55,3],['ON-PREMISES VLAN / FIREWALL',700,150,190,55,4],['ON-PREM APPS / DATABASES',700,245,190,55,7],['FEDERATED IAM / SECRETS',330,365,330,48,4]],links:[[0,1],[1,2],[2,3],[3,4],[4,5],[4,6],[6,7],[7,8],[8,9],[5,10],[9,10]]}
+ };
+ function renderDiagram(provider,selected=0){
+  const m=diagramModels[provider];
+  const isHybrid=provider==='hybrid';
+  const box=isHybrid?{x:45,y:125,w:420,h:220}:{x:45,y:125,w:850,h:225};
+  let svg=`<svg viewBox="0 0 960 445" role="img" aria-label="${esc(m.label)} architecture flow diagram"><defs><marker id="arrow-${provider}" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#3de4ff"/></marker></defs><text x="24" y="18" class="diagram-kicker">${esc(m.label)} / TRAFFIC + TRUST BOUNDARIES</text>`;
+  if(!isHybrid) svg+=`<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="12" class="diagram-boundary"/><text x="62" y="146" class="diagram-boundary-label">${esc(m.outer)}</text>`;
+  else svg+=`<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="12" class="diagram-boundary"/><text x="62" y="145" class="diagram-boundary-label">${esc(m.outer)}</text>`;
+  m.links.forEach(([a,b])=>{const A=m.nodes[a],B=m.nodes[b],x1=A[1]+A[3]/2,y1=A[2]+A[4]/2,x2=B[1]+B[3]/2,y2=B[2]+B[4]/2;let sx=x1,sy=y1,ex=x2,ey=y2;if(Math.abs(x2-x1)>Math.abs(y2-y1)){sx=x1+(x2>x1?A[3]/2:-A[3]/2);ex=x2+(x1>x2?B[3]/2:-B[3]/2)}else{sy=y1+(y2>y1?A[4]/2:-A[4]/2);ey=y2+(y1>y2?B[4]/2:-B[4]/2)}svg+=`<path d="M${sx} ${sy} L${ex} ${ey}" class="diagram-link" marker-end="url(#arrow-${provider})"/>`});
+  m.nodes.forEach((n,i)=>{const [label,x,y,w,h,idx]=n;svg+=`<g class="diagram-node${idx===selected?' selected':''}" data-index="${idx}" tabindex="0" role="button" aria-label="Inspect ${esc(label)}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7"/><text x="${x+w/2}" y="${y+h/2-2}">${esc(label.length>25?label.slice(0,24)+'…':label)}</text><text x="${x+w/2}" y="${y+h/2+13}" class="diagram-index">COMPONENT ${String(idx+1).padStart(2,'0')}</text></g>`});
+  svg+=`<text x="24" y="430" class="diagram-foot">SCHEMATIC · NOT A LIVE RESOURCE INVENTORY · SELECT A NODE TO INSPECT</text></svg>`;diagram.innerHTML=svg;
+ }
  function render(provider){
   tabs.forEach(t=>t.classList.toggle('active',t.dataset.arch===provider));
   flow.innerHTML=architectures[provider].map((c,i)=>`<button class="arch-component${i===0?' selected':''}" type="button" data-index="${i}"><span>${c[0]}</span><b>${c[1]}</b><small>${c[2]}</small></button>`).join('');
-  const choose=(i)=>{[...flow.children].forEach(n=>n.classList.toggle('selected',Number(n.dataset.index)===i));const c=architectures[provider][i];detail.innerHTML=`<b>${provider.toUpperCase()} / ${c[1]}</b><span>${c[3]}</span><span><em>Control recomendado:</em> validar ownership, logging, cifrado, acceso mínimo y configuración mediante IaC/policy-as-code cuando aplique.</span>`;};
+  const choose=(i)=>{[...flow.children].forEach(n=>n.classList.toggle('selected',Number(n.dataset.index)===i));const c=architectures[provider][i];detail.innerHTML=`<b>${provider.toUpperCase()} / ${c[1]}</b><span>${c[3]}</span><span><em>Control recomendado:</em> validar ownership, logging, cifrado, acceso mínimo y configuración mediante IaC/policy-as-code cuando aplique.</span>`;renderDiagram(provider,i);diagram.querySelectorAll('.diagram-node').forEach(node=>{const activate=()=>choose(Number(node.dataset.index));node.addEventListener('click',activate);node.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();activate()}})});};
   [...flow.children].forEach((node,i)=>node.addEventListener('click',()=>choose(i)));choose(0);
  }
  tabs.forEach(t=>t.addEventListener('click',()=>render(t.dataset.arch)));render('aws');
