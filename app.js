@@ -66,3 +66,19 @@
   $('runPipeline').addEventListener('click',async()=>{const token=++runToken;const btn=$('runPipeline');btn.disabled=true;$('pipelineStatus').textContent='RUNNING';$('pipelineSub').textContent='Simulación de entrega en curso';jobs.forEach(j=>{j.classList.remove('active','done','failed');j.querySelector('.job-state').textContent='WAIT'});document.querySelectorAll('.env-card').forEach(e=>e.classList.remove('active','done'));const envs=[...document.querySelectorAll('.env-card')];for(let i=0;i<jobs.length;i++){if(token!==runToken)return;jobs[i].classList.add('active');jobs[i].querySelector('.job-state').textContent='RUNNING';await new Promise(r=>setTimeout(r,650));if(token!==runToken)return;jobs[i].classList.remove('active');jobs[i].classList.add('done');jobs[i].querySelector('.job-state').textContent='PASS';if(i===0)envs[0].classList.add('active');if(i===1){envs[0].classList.remove('active');envs[0].classList.add('done');envs[1].classList.add('active')}if(i===2){envs[1].classList.remove('active');envs[1].classList.add('done');envs[2].classList.add('active')}if(i===3){envs[2].classList.remove('active');envs[2].classList.add('done');envs[3].classList.add('active')}if(i===4){envs[3].classList.remove('active');envs[3].classList.add('done')}}$('pipelineStatus').textContent='SUCCESS';$('pipelineSub').textContent='Demo completada · no se ejecutó un deploy real';btn.disabled=false;toast('Demo pipeline completada. No se realizaron cambios en AWS, Azure ni GitHub Actions.');});
   load();
 })();
+
+
+// Module navigation: highlight the active section and keep all dashboard areas reachable.
+(() => {
+  const links = [...document.querySelectorAll('.module-nav .nav-item')];
+  const targets = links.map(link => document.querySelector(link.getAttribute('href'))).filter(Boolean);
+  const setActive = id => links.forEach(link => link.classList.toggle('active', link.getAttribute('href') === '#' + id));
+  links.forEach(link => link.addEventListener('click', () => setActive(link.getAttribute('href').slice(1))));
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry => entry.isIntersecting).sort((a,b) => b.intersectionRatio-a.intersectionRatio)[0];
+      if (visible) setActive(visible.target.id);
+    }, {rootMargin:'-18% 0px -65% 0px', threshold:[0,.1,.25,.5]});
+    targets.forEach(target => observer.observe(target));
+  }
+})();
