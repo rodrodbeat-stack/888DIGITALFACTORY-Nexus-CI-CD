@@ -162,3 +162,50 @@
     if(nodes.length){nodes[0].classList.add('selected');const name=nodes[0].querySelector('b')?.textContent?.trim()||'';detail.textContent=(descriptions[name]||'Etapa inicial del flujo operativo.')+' Selecciona cualquier etapa para más detalle.';}
   });
 })();
+
+
+// Provider-aware architecture explorer: interactive reference components, not live cloud inventory.
+(() => {
+ const architectures = {
+  aws: [
+   ['EDGE','Route 53 + CloudFront','DNS, edge delivery','Routes users to the nearest edge and can cache static content.'],
+   ['PROTECTION','AWS WAF','Web application firewall','Filters common web exploits and malicious request patterns before they reach the app.'],
+   ['INGRESS','Application Load Balancer','Layer 7 routing','Distributes HTTP/HTTPS traffic and routes by host or path to healthy targets.'],
+   ['NETWORK','VPC + public/private subnets','Network isolation','VPC defines the network boundary; public subnets host controlled ingress and private subnets isolate workloads.'],
+   ['ACCESS','Security Groups + IAM','Least privilege','Security groups constrain network paths; IAM roles grant workload permissions without hard-coded credentials.'],
+   ['COMPUTE','EKS / ECS / EC2 / Lambda','Application runtime','Choose Kubernetes, managed containers, virtual machines, or serverless based on workload needs.'],
+   ['SECRETS','Secrets Manager + KMS','Secrets and encryption','Stores secrets and manages encryption keys; use rotation and scoped access policies.'],
+   ['DATA','RDS / DynamoDB / S3','Protected data layer','Keep databases private, encrypt data, back up critical records, and grant only required service access.']
+  ],
+  azure: [
+   ['EDGE','Azure DNS + Front Door','Global entry point','Provides global routing and optional edge acceleration for internet-facing applications.'],
+   ['PROTECTION','Application Gateway WAF','Web application firewall','Inspects web traffic and blocks common web attacks before requests reach application services.'],
+   ['INGRESS','Application Gateway / Load Balancer','Traffic distribution','Application Gateway handles HTTP-aware routing; Load Balancer distributes network traffic.'],
+   ['NETWORK','VNet + subnets','Network isolation','VNet contains isolated address space; subnet boundaries separate ingress, apps, and data tiers.'],
+   ['ACCESS','NSG + Azure RBAC + Managed Identity','Least privilege','NSGs filter network flows; RBAC and managed identities limit control-plane and service access.'],
+   ['COMPUTE','AKS / App Service / VM / Functions','Application runtime','Use managed Kubernetes, platform web hosting, virtual machines, or serverless functions.'],
+   ['SECRETS','Key Vault + Private Endpoint','Secrets and private access','Store keys and secrets in Key Vault and restrict access through private connectivity and identity.'],
+   ['DATA','Azure SQL / Cosmos DB / Storage','Protected data layer','Use private connectivity, encryption, backups, and role-scoped access for data services.']
+  ],
+  hybrid: [
+   ['EDGE','Public DNS + CDN','Global entry point','Publishes only the required entry points and accelerates content where appropriate.'],
+   ['PROTECTION','WAF + DDoS protection','Perimeter controls','Apply web filtering and network-level denial-of-service protection at the exposed boundary.'],
+   ['INGRESS','Reverse proxy / load balancer','Controlled ingress','Terminate TLS, health-check targets, and route traffic only to approved services.'],
+   ['NETWORK','Cloud VPC/VNet + on-prem VLANs','Segmentation','Separate tiers and connect environments with VPN or private circuits using explicit routes.'],
+   ['ACCESS','Federated IAM + firewall rules','Unified access control','Use federated identity, short-lived credentials, least privilege, and reviewed network policies.'],
+   ['COMPUTE','Kubernetes + VMs + PaaS','Mixed workloads','Place workloads according to latency, compliance, operations, and portability requirements.'],
+   ['SECRETS','Vault / Key Vault / Secrets Manager','Central secret handling','Avoid secrets in source code and synchronize access through a controlled secrets service.'],
+   ['DATA','Managed DB + on-prem DB + backup','Resilient data layer','Control data movement, encryption, backup retention, recovery objectives, and residency constraints.']
+  ]
+ };
+ const flow=document.getElementById('archFlow'), detail=document.getElementById('archDetail');
+ if(!flow||!detail)return;
+ const tabs=[...document.querySelectorAll('.arch-tab')];
+ function render(provider){
+  tabs.forEach(t=>t.classList.toggle('active',t.dataset.arch===provider));
+  flow.innerHTML=architectures[provider].map((c,i)=>`<button class="arch-component${i===0?' selected':''}" type="button" data-index="${i}"><span>${c[0]}</span><b>${c[1]}</b><small>${c[2]}</small></button>`).join('');
+  const choose=(i)=>{[...flow.children].forEach(n=>n.classList.toggle('selected',Number(n.dataset.index)===i));const c=architectures[provider][i];detail.innerHTML=`<b>${provider.toUpperCase()} / ${c[1]}</b><span>${c[3]}</span><span><em>Control recomendado:</em> validar ownership, logging, cifrado, acceso mínimo y configuración mediante IaC/policy-as-code cuando aplique.</span>`;};
+  [...flow.children].forEach((node,i)=>node.addEventListener('click',()=>choose(i)));choose(0);
+ }
+ tabs.forEach(t=>t.addEventListener('click',()=>render(t.dataset.arch)));render('aws');
+})();

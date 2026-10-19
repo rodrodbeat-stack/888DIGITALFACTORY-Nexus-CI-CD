@@ -25,3 +25,7 @@ Los datos de branches, commits y Actions proceden de la API pública de GitHub c
 
 ## Diagramas por módulo
 Cada sección del dashboard incorpora su propio diagrama de flujo interactivo. Pulsa una etapa para ver su función. Los diagramas describen el flujo operativo de referencia; solo GitHub branches, commits y Actions se consultan en vivo si la API pública los devuelve.
+
+
+## Architecture deep dive
+The Infrastructure module includes interactive AWS, Azure, and Hybrid component maps covering edge/DNS, WAF, load balancing, VPC/VNet and subnets, identity/network controls, compute/Kubernetes, secrets, and data services. Click any component for a practical description and a recommended control. These are educational reference diagrams, not a live cloud inventory or deployment mechanism.
