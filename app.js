@@ -16,8 +16,35 @@
       const seen=new Set();commits=[];results.forEach((list,i)=>list.forEach(c=>{if(!c||!c.sha)return;const branch=branches[i]?.name||'unknown';const key=`${c.sha}:${branch}`;if(seen.has(key))return;seen.add(key);commits.push({sha:c.sha,message:(c.commit?.message||'').split('\n')[0],author:c.commit?.author?.name||c.author?.login||'unknown',date:c.commit?.author?.date||'',url:c.html_url,branch});}));
       commits.sort((a,b)=>new Date(b.date)-new Date(a.date));
       $('branchCount').textContent=branches.length;$('commitCount').textContent=commits.length;$('connectionLabel').textContent='GITHUB CONNECTED';$('dataMode').textContent='LIVE GITHUB API';$('pipelineStatus').textContent='READY';$('pipelineSub').textContent='Esperando ejecución manual';$('lastUpdated').textContent='LAST SYNC: '+new Date().toLocaleTimeString();
-      renderBranches();renderGraph();renderCommits();
+      renderBranches();renderGraph();renderCommits();loadActions();
     }catch(e){$('connectionLabel').textContent='API UNAVAILABLE';$('dataMode').textContent='CONNECTION ERROR';$('graphWrap').innerHTML=`<div class="loading"><p>⚠ ${escapeHtml(e.message)}</p><button class="small-btn" onclick="document.getElementById('refreshBtn').click()">RETRY SYNC</button><p>Comprueba que el repositorio sea público y que la URL esté bien escrita.</p></div>`;toast(e.message)}finally{$('refreshBtn').disabled=false}
+  }
+  function stateLabel(run){
+    if(run.status==='in_progress'||run.status==='queued'||run.status==='waiting'||run.status==='requested')return {label:run.status.toUpperCase().replace('_',' '),cls:'running'};
+    if(run.conclusion==='success')return {label:'SUCCESS',cls:'success'};
+    if(run.conclusion==='failure')return {label:'FAILURE',cls:'failure'};
+    if(run.conclusion==='cancelled')return {label:'CANCELLED',cls:'neutral'};
+    if(run.conclusion==='skipped')return {label:'SKIPPED',cls:'neutral'};
+    return {label:(run.conclusion||run.status||'UNKNOWN').toUpperCase(),cls:'neutral'};
+  }
+  async function loadActions(){
+    const state=$('actionsState'),when=$('actionsWhen'),box=$('actionsRun');
+    if(!state||!box)return;
+    state.textContent='SYNC EN PROGRESO';state.className='actions-state running';
+    try{
+      const data=await getJson(`${API}/actions/runs?per_page=8`);
+      const runs=data.workflow_runs||[];
+      if(!runs.length){state.textContent='SIN EJECUCIONES';state.className='actions-state neutral';when.textContent='No hay runs devueltos por GitHub';box.innerHTML='<div class="actions-empty"><b>No hay ejecuciones registradas.</b><p>Agrega un workflow en .github/workflows/ y haz push para que GitHub Actions genere la primera ejecución.</p><a href="https://github.com/'+OWNER+'/'+REPO+'/actions" target="_blank" rel="noreferrer">ABRIR GITHUB ACTIONS ↗</a></div>';return;}
+      const run=runs[0],st=stateLabel(run);state.textContent=st.label;state.className='actions-state '+st.cls;
+      when.textContent=`Última ejecución · ${new Date(run.updated_at||run.created_at).toLocaleString()}`;
+      box.innerHTML=`<div class="run-header"><div><b>${escapeHtml(run.name||run.display_title||'Workflow')}</b><small>${escapeHtml(run.head_branch||'branch desconocida')} · #${run.run_number} · ${short(run.head_sha)}</small></div><span class="run-badge ${st.cls}">${st.label}</span></div><div class="run-detail"><span>EVENTO <b>${escapeHtml(run.event||'—')}</b></span><span>ACTOR <b>${escapeHtml(run.actor?.login||'—')}</b></span><span>WORKFLOW <b>${escapeHtml(run.path||'—')}</b></span></div><a class="run-link" href="${escapeHtml(run.html_url)}" target="_blank" rel="noreferrer">VER EJECUCIÓN COMPLETA EN GITHUB ↗</a><div class="job-live-list" id="liveJobs"><div class="live-job"><span class="tiny-dot"></span>Consultando jobs de esta ejecución…</div></div>`;
+      try{
+        const jobsData=await getJson(`${API}/actions/runs/${run.id}/jobs?per_page=30`),jobList=jobsData.jobs||[];
+        const live=$('liveJobs');
+        if(!jobList.length){live.innerHTML='<div class="live-job muted">GitHub no devolvió jobs para esta ejecución.</div>';return;}
+        live.innerHTML=jobList.map(j=>{const js=stateLabel({status:j.status,conclusion:j.conclusion});return `<div class="live-job"><span class="job-led ${js.cls}"></span><span class="live-job-name">${escapeHtml(j.name)}</span><span class="live-job-status ${js.cls}">${js.label}</span><small>${j.started_at?new Date(j.started_at).toLocaleTimeString():'—'}</small></div>`}).join('');
+      }catch(jobErr){const live=$('liveJobs');if(live)live.innerHTML='<div class="live-job muted">Estado general disponible; no se pudieron cargar los jobs. Reintenta SYNC ACTIONS.</div>';}
+    }catch(e){state.textContent='NO DISPONIBLE';state.className='actions-state failure';when.textContent='No se pudo consultar GitHub Actions';box.innerHTML=`<div class="actions-empty"><b>${escapeHtml(e.message)}</b><p>Revisa que Actions esté habilitado y que el repositorio sea público. La API pública tiene límites de consultas.</p><a href="https://github.com/${OWNER}/${REPO}/actions" target="_blank" rel="noreferrer">ABRIR GITHUB ACTIONS ↗</a></div>`;}
   }
   function renderBranches(){
     $('branchSummary').textContent=`${branches.length} RAMAS`;const list=$('branchList');list.innerHTML='';
@@ -34,7 +61,7 @@
     add('text',{x:left,y:H-10,class:'graph-sha'},svg,'OLDER  ←  COMMIT HISTORY  →  RECENT');
   }
   function renderCommits(){const rows=commits.filter(c=>selectedBranch==='all'||c.branch===selectedBranch).slice(0,14);$('activityCount').textContent=`${rows.length} EVENTS`;const body=$('commitTable');if(!rows.length){body.innerHTML='<tr><td colspan="5" class="empty">No hay commits recientes devueltos para este filtro.</td></tr>';return}body.innerHTML=rows.map(c=>`<tr><td><a style="color:var(--cyan);text-decoration:none" href="${escapeHtml(c.url)}" target="_blank" rel="noreferrer">${short(c.sha)}</a></td><td title="${escapeHtml(c.message)}">${escapeHtml(c.message||'(sin mensaje)')}</td><td><span class="branch-tag">${escapeHtml(c.branch)}</span></td><td>${escapeHtml(c.author)}</td><td>${c.date?new Date(c.date).toLocaleString():'—'}</td></tr>`).join('')}
-  $('refreshBtn').addEventListener('click',load);$('allBranchesBtn').addEventListener('click',()=>{selectedBranch='all';renderBranches();renderGraph();renderCommits()});
+  $('refreshBtn').addEventListener('click',load);$('refreshActionsBtn')?.addEventListener('click',loadActions);$('allBranchesBtn').addEventListener('click',()=>{selectedBranch='all';renderBranches();renderGraph();renderCommits()});
   const jobs=[...document.querySelectorAll('.job')];jobs.forEach((j,i)=>j.addEventListener('click',()=>{jobs.forEach(x=>x.classList.remove('active'));j.classList.add('active');toast(`Job ${i+1}: ${j.querySelector('b').textContent}. Usa RUN DEMO PIPELINE para animar el flujo completo.`)}));
   $('runPipeline').addEventListener('click',async()=>{const token=++runToken;const btn=$('runPipeline');btn.disabled=true;$('pipelineStatus').textContent='RUNNING';$('pipelineSub').textContent='Simulación de entrega en curso';jobs.forEach(j=>{j.classList.remove('active','done','failed');j.querySelector('.job-state').textContent='WAIT'});document.querySelectorAll('.env-card').forEach(e=>e.classList.remove('active','done'));const envs=[...document.querySelectorAll('.env-card')];for(let i=0;i<jobs.length;i++){if(token!==runToken)return;jobs[i].classList.add('active');jobs[i].querySelector('.job-state').textContent='RUNNING';await new Promise(r=>setTimeout(r,650));if(token!==runToken)return;jobs[i].classList.remove('active');jobs[i].classList.add('done');jobs[i].querySelector('.job-state').textContent='PASS';if(i===0)envs[0].classList.add('active');if(i===1){envs[0].classList.remove('active');envs[0].classList.add('done');envs[1].classList.add('active')}if(i===2){envs[1].classList.remove('active');envs[1].classList.add('done');envs[2].classList.add('active')}if(i===3){envs[2].classList.remove('active');envs[2].classList.add('done');envs[3].classList.add('active')}if(i===4){envs[3].classList.remove('active');envs[3].classList.add('done')}}$('pipelineStatus').textContent='SUCCESS';$('pipelineSub').textContent='Demo completada · no se ejecutó un deploy real';btn.disabled=false;toast('Demo pipeline completada. No se realizaron cambios en AWS, Azure ni GitHub Actions.');});
   load();
