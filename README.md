@@ -1,25 +1,21 @@
-# 888DIGITALFACTORY — Git Flow CI/CD
+# 888DIGITALFACTORY — Nexus CI/CD
 
-Dashboard cyberpunk inspirado en el panel Nexus compartido: grafo de ramas, historial de commits, etapas de CI/CD, controles de seguridad y actividad.
+Dashboard estático con estética cyber/Nexus, inventario de ramas reales y commits recientes consultados desde la API pública de GitHub.
 
 ## Archivos
-- `index.html`, `styles.css`, `app.js`: dashboard interactivo de frontend.
-- `.github/workflows/secure-cicd.yml`: workflow de GitHub Actions con cinco jobs.
+- `index.html`: estructura del dashboard.
+- `styles.css`: diseño responsive oscuro, paneles, grafo y animaciones.
+- `app.js`: consulta de branches/commits, filtros y animación del pipeline.
 
-## Flujo de ramas sugerido
-- `feature/*` o `fix/*`: trabajo aislado por cambio.
-- Pull request hacia `develop`: validación y revisión.
-- `release/*`: estabilización previa.
-- Pull request hacia `main`: versión productiva.
-- Push directo a `main`: valida y despliega GitHub Pages.
+## Publicar en GitHub Pages
+1. Descomprime el ZIP.
+2. Sube los cuatro archivos a la raíz del repositorio `rodrodbeat-stack/888DIGITALFACTORY-Nexus-CI-CD`.
+3. En GitHub abre **Settings → Pages**.
+4. En Build and deployment selecciona **Deploy from a branch**, branch `main`, folder `/ (root)` y guarda.
+5. Espera a que termine el workflow de Pages y abre la URL que GitHub muestre.
 
-El workflow corre validaciones y seguridad en push/PR. El job de despliegue se ejecuta solo en `main` y no tiene aprobaciones manuales configuradas.
-
-## Publicar en GitHub
-1. Copia estos archivos a la raíz del repositorio.
-2. En GitHub abre **Settings → Pages** y configura **Build and deployment → Source: GitHub Actions**.
-3. Haz commit y push a `main`.
-4. Revisa **Actions → 888DIGITALFACTORY | Secure CI/CD**.
-
-## Importante: demo visual vs. datos reales
-El grafo, los commits y la actividad que se muestran en el navegador son datos de ejemplo; el botón “Simular nuevo commit” y “Run demo flow” solo simulan el comportamiento del frontend. Los jobs del workflow sí se ejecutan en GitHub Actions cuando se hace push/PR. Para alimentar el dashboard con el historial real del repositorio y el estado real de los jobs hay que añadir integración con la GitHub REST API y autenticación segura (no exponer tokens en el frontend).
+## Notas
+- El dashboard usa el endpoint público `https://api.github.com/repos/rodrodbeat-stack/888DIGITALFACTORY-Nexus-CI-CD` y no necesita token mientras el repositorio sea público.
+- Para limitar el número de peticiones, consulta hasta 20 ramas y hasta 8 commits por rama en cada sincronización.
+- El grafo es una representación visual aproximada de ramas y commits recientes; no reconstruye todas las relaciones de merge del DAG de Git.
+- **RUN DEMO PIPELINE** es una simulación visual local. No ejecuta GitHub Actions ni despliega aplicaciones.

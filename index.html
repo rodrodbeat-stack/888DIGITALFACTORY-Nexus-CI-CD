@@ -1,77 +1,32 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>888DIGITALFACTORY | Nexus Control Plane</title>
-<link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#080a14"><title>888DIGITALFACTORY | Nexus CI/CD</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="shell">
-  <aside class="sidebar">
-    <div class="brand"><span class="logo">◆</span><div><b>888DIGITALFACTORY</b><small>// CONTROL PLANE</small></div></div>
-    <div class="side-caption">ENGINEERING PLATFORM</div>
-    <button class="nav active" data-view="overview">◈ <span>Overview</span></button>
-    <button class="nav" data-view="git">⑂ <span>Git Flow</span></button>
-    <button class="nav" data-view="pipeline">⛓ <span>CI/CD Pipeline</span></button>
-    <button class="nav" data-view="security">⬡ <span>Security & Quality</span></button>
-    <button class="nav" data-view="deploy">☁ <span>Deployments</span></button>
-    <button class="nav" data-view="audit">▤ <span>Audit events</span></button>
-    <div class="sidebar-bottom"><div class="assistant-icon">✳</div><b>FLOW ASSISTANT</b><p>Commit → branches → checks → deploy. Sigue el flujo real del repositorio.</p><span class="tiny-live"><i></i> telemetry active</span></div>
-  </aside>
-  <main class="main">
-    <header class="topbar">
-      <div class="crumb">NEXUS <span>//</span> SOFTWARE DELIVERY</div>
-      <div class="env-switch" role="group" aria-label="Entorno">
-        <button class="env active" data-env="PROD">PROD</button><button class="env" data-env="STAGING">STAGING</button><button class="env" data-env="DEV">DEV</button>
-      </div>
-      <label class="search">⌕ <input id="search" placeholder="Buscar commit, branch, job..."></label>
-      <div class="health"><i></i><div><b>SYSTEM OPERATIONAL</b><small>GitHub Actions connected*</small></div></div>
-      <button class="icon-btn" id="refresh" title="Actualizar flujo">⟳</button>
-    </header>
-    <div class="content">
-      <div class="page-heading"><div><div class="eyebrow">SOFTWARE DELIVERY INTELLIGENCE</div><h1>Control Plane <span>/ Git Flow</span></h1><p>Visualización de ramas, commits, validaciones y despliegues.</p></div><button class="primary" id="simulate">▶ Simular nuevo commit</button></div>
-      <div class="metrics">
-        <article class="metric purple"><label>GOVERNANCE SCORE</label><strong>96<span>%</span></strong><small>↑ 2.4% <em>últimos 7 días</em></small><div class="sparkline">▁▂▁▃▂▄▃▅▆▄▆▇</div></article>
-        <article class="metric red"><label>SECURITY FINDINGS</label><strong id="findings">03</strong><small><span class="down">↓ 32%</span> <em>últimos 7 días</em></small><div class="bars red-bars">▂▅▃▆▂▄▇▅▃▆</div></article>
-        <article class="metric cyan"><label>PIPELINE SUCCESS</label><strong id="successRate">98.4<span>%</span></strong><small><span class="up">↑ 1.2%</span> <em>últimos 7 días</em></small><div class="bars cyan-bars">▃▅▂▄▅▇▄▃▆█</div></article>
-        <article class="metric orange"><label>POLICY VIOLATIONS</label><strong>02</strong><small><span class="down">↓ 18%</span> <em>últimos 7 días</em></small><div class="bars orange-bars">▂▃▅▂▄▃▆▄▇</div></article>
-      </div>
-      <section class="panel git-panel" id="gitPanel">
-        <div class="panel-head"><div><span class="panel-icon">⑂</span><div><h2>Git Flow Graph</h2><p>Ramas y commits · representación ilustrativa</p></div></div><div class="filters"><select id="branchFilter"><option value="all">All branches</option><option>main</option><option>develop</option><option>release/v2.8</option><option>feature/auth</option><option>feature/payments</option></select><input id="commitFilter" placeholder="Filtrar commits..."></div></div>
-        <div class="graph-layout">
-          <div class="graph-scroll"><svg id="gitGraph" viewBox="0 0 680 410" role="img" aria-label="Gráfico de ramas Git"></svg></div>
-          <div class="commit-list"><div class="commit-header"><span>COMMIT / MESSAGE</span><span>AUTHOR</span><span>TIME</span></div><div id="commits"></div></div>
-        </div>
-        <div class="legend"><span><i class="dot purple-dot"></i>main</span><span><i class="dot cyan-dot"></i>release</span><span><i class="dot blue-dot"></i>develop</span><span><i class="dot green-dot"></i>feature/auth</span><span><i class="dot orange-dot"></i>feature/payments</span><span class="legend-note">*Vista demo. Conecta datos reales mediante GitHub API para sincronización.</span></div>
-      </section>
-      <div class="lower-grid">
-        <section class="panel pipeline-panel" id="pipelinePanel">
-          <div class="panel-head"><div><span class="panel-icon cyan-text">⛓</span><div><h2>CI/CD Pipeline</h2><p>Commit → build → test → security → deploy</p></div></div><button class="text-btn" id="runPipeline">Run demo flow ↗</button></div>
-          <div class="pipeline-track" id="pipelineTrack">
-            <div class="stage done"><div class="stage-node">⌘<b>✓</b></div><strong>Source</strong><small>Commit pushed</small><em>main / develop</em></div><div class="arrow">→</div>
-            <div class="stage done"><div class="stage-node">⬡<b>✓</b></div><strong>Build</strong><small>Dependencies</small><em>npm ci</em></div><div class="arrow">→</div>
-            <div class="stage done"><div class="stage-node">◈<b>✓</b></div><strong>Test</strong><small>Unit + lint</small><em>Checks passed</em></div><div class="arrow">→</div>
-            <div class="stage warn"><div class="stage-node">♜<b>!</b></div><strong>Security</strong><small>Secret scan</small><em>1 advisory</em></div><div class="arrow">→</div>
-            <div class="stage"><div class="stage-node">☁</div><strong>Deploy</strong><small>GitHub Pages</small><em>Waiting</em></div>
-          </div>
-          <div class="pipeline-footer"><span><i class="dot green-dot"></i> 3 passed</span><span><i class="dot orange-dot"></i> 1 warning</span><span><i class="dot muted-dot"></i> 1 pending</span><span class="run-id">RUN #482 · <b id="runStatus">DEMO READY</b></span></div>
-        </section>
-        <section class="panel governance-panel" id="securityPanel">
-          <div class="panel-head"><div><span class="panel-icon purple-text">⬡</span><div><h2>Security & Governance</h2><p>Controles del flujo de entrega</p></div></div></div>
-          <div class="control-row"><div><b>Branch protection</b><small>main · pull request required</small></div><span class="pill good">ENABLED</span></div>
-          <div class="control-row"><div><b>Dependency audit</b><small>npm audit / advisory check</small></div><span class="pill warn-pill">REVIEW</span></div>
-          <div class="control-row"><div><b>Secret scanning</b><small>Tracked source scan</small></div><span class="pill good">PASSED</span></div>
-          <div class="control-row"><div><b>Environment deploy</b><small id="envDeployText">Production target selected</small></div><span class="pill info" id="envPill">PROD</span></div>
-        </section>
-      </div>
-      <section class="panel activity-panel" id="activityPanel">
-        <div class="panel-head"><div><span class="panel-icon orange-text">◉</span><div><h2>Live activity stream</h2><p>Eventos generados por la demo local</p></div></div><button class="text-btn" id="clearActivity">Clear events</button></div>
-        <div id="activity" class="activity-list"><div class="activity-item"><span class="activity-dot green-bg"></span><time>20:18:42</time><b>workflow_dispatch</b><span>CI/CD demo control plane initialized</span><em>INFO</em></div><div class="activity-item"><span class="activity-dot cyan-bg"></span><time>20:18:11</time><b>commit</b><span>feat: add deployment telemetry</span><em>GIT</em></div><div class="activity-item"><span class="activity-dot orange-bg"></span><time>20:17:54</time><b>security-checks</b><span>Dependency advisory requires review</span><em>WARN</em></div></div>
-      </section>
-      <footer>888DIGITALFACTORY <span>·</span> NEXUS CONTROL PLANE <span>·</span> v1.0.0 <span>·</span> SECURE BY DESIGN <span class="footer-right">GitHub Actions workflow included</span></footer>
-    </div>
+  <header class="topbar"><a class="brand" href="#"><span class="brand-mark">888</span><span><b>DIGITALFACTORY</b><small>NEXUS / DELIVERY INTELLIGENCE</small></span></a><div class="top-right"><span class="live-dot"></span><span id="connectionLabel">CONECTANDO CON GITHUB</span><button class="icon-btn" id="refreshBtn" title="Actualizar datos">↻ <span>SYNC</span></button></div></header>
+  <section class="hero"><div><div class="eyebrow">● PLATFORM ENGINEERING / CONTROL PLANE</div><h1>NEXUS <em>CI/CD</em></h1><p>Flujo de entrega de software · ramas reales · trazabilidad de commits</p></div><div class="hero-meta"><span class="meta-label">REPOSITORY</span><a id="repoLink" href="https://github.com/rodrodbeat-stack/888DIGITALFACTORY-Nexus-CI-CD" target="_blank" rel="noreferrer">rodrodbeat-stack / 888DIGITALFACTORY-Nexus-CI-CD ↗</a><span class="api-state"><i></i><span id="dataMode">LIVE GITHUB API</span></span></div></section>
+  <section class="metrics"><article><span>BRANCHES</span><strong id="branchCount">--</strong><small>Ramas detectadas</small></article><article><span>COMMITS LOADED</span><strong id="commitCount">--</strong><small>Historial visible</small></article><article><span>PIPELINE STATUS</span><strong class="status-text" id="pipelineStatus">READY</strong><small id="pipelineSub">Esperando ejecución manual</small></article><article><span>ENVIRONMENTS</span><strong>04</strong><small>DEV · CERT · QA · PROD</small></article></section>
+  <main class="layout">
+    <section class="panel graph-panel"><div class="panel-head"><div><span class="section-no">01 / SOURCE CONTROL</span><h2>Branch topology</h2></div><div class="panel-actions"><span class="pill"><i class="live-dot"></i> GITHUB DATA</span><button class="small-btn" id="allBranchesBtn">ALL BRANCHES</button></div></div>
+      <div class="graph-legend"><span><i class="legend-dot main-dot"></i> main</span><span><i class="legend-dot develop-dot"></i> develop</span><span><i class="legend-dot feature-dot"></i> feature / release / hotfix</span></div>
+      <div class="graph-wrap" id="graphWrap"><div class="loading"><span class="spinner"></span><p>Consultando branches y commits reales…</p></div><svg id="branchGraph" role="img" aria-label="Grafo de ramas y commits de GitHub"></svg></div>
+      <div class="branch-list-head"><span>BRANCH INVENTORY</span><span id="branchSummary">Cargando…</span></div><div id="branchList" class="branch-list"></div>
+      <p class="footnote">Vista visual aproximada construida desde la API pública de GitHub. Las relaciones de merge exactas requieren reconstruir el DAG completo de Git.</p>
+    </section>
+    <aside class="side-column"><section class="panel"><div class="panel-head"><div><span class="section-no">02 / EXECUTION</span><h2>Delivery pipeline</h2></div><span class="pill">5 JOBS</span></div><div class="pipeline" id="pipeline">
+      <button class="job active" data-job="0"><span class="job-icon">01</span><span><b>Commit & source</b><small>Push · branch · webhook</small></span><span class="job-state">READY</span></button>
+      <div class="pipe-link"></div><button class="job" data-job="1"><span class="job-icon">02</span><span><b>Build artifact</b><small>Dependencies · package</small></span><span class="job-state">WAIT</span></button>
+      <div class="pipe-link"></div><button class="job" data-job="2"><span class="job-icon">03</span><span><b>Security baseline</b><small>Secrets · SAST · policy</small></span><span class="job-state">WAIT</span></button>
+      <div class="pipe-link"></div><button class="job" data-job="3"><span class="job-icon">04</span><span><b>Quality & tests</b><small>Unit · integration · QA</small></span><span class="job-state">WAIT</span></button>
+      <div class="pipe-link"></div><button class="job" data-job="4"><span class="job-icon">05</span><span><b>Deploy & audit</b><small>Environment · release log</small></span><span class="job-state">WAIT</span></button>
+    </div><button id="runPipeline" class="run-btn"><span>▶</span> RUN DEMO PIPELINE</button><p class="micro-note">Animación demostrativa: no ejecuta deployments ni GitHub Actions.</p></section>
+    <section class="panel env-panel"><div class="panel-head"><div><span class="section-no">03 / RELEASE PATH</span><h2>Environments</h2></div></div><div class="env-grid"><div class="env-card"><i>01</i><b>DEV</b><small>Continuous integration</small><span class="env-led"></span></div><div class="env-card"><i>02</i><b>CERT</b><small>Pre-release validation</small><span class="env-led"></span></div><div class="env-card"><i>03</i><b>QA</b><small>Quality assurance</small><span class="env-led"></span></div><div class="env-card"><i>04</i><b>PROD</b><small>Production release</small><span class="env-led"></span></div></div></section></aside>
   </main>
-</div>
-<div class="toast" id="toast" role="status"></div>
-<script src="app.js"></script>
+  <section class="panel activity-panel"><div class="panel-head"><div><span class="section-no">04 / AUDIT STREAM</span><h2>Recent commits</h2></div><span class="pill" id="activityCount">0 EVENTS</span></div><div class="table-wrap"><table><thead><tr><th>SHA</th><th>MESSAGE</th><th>BRANCH</th><th>AUTHOR</th><th>DATE</th></tr></thead><tbody id="commitTable"><tr><td colspan="5" class="empty">Esperando datos de GitHub…</td></tr></tbody></table></div></section>
+  <footer><span>888DIGITALFACTORY <b>×</b> NEXUS CI/CD</span><span>OBSERVABILITY · GOVERNANCE · DELIVERY</span><span id="lastUpdated">LAST SYNC: —</span></footer>
+</div><div id="toast" class="toast" role="status"></div><script src="app.js"></script>
 </body></html>

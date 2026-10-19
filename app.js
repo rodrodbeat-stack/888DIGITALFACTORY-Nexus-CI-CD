@@ -1,46 +1,41 @@
-const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
-const branchColors={main:"#9258ff","release/v2.8":"#00d9ed",develop:"#168bff","feature/auth":"#00dfa2","feature/payments":"#ff9d26","feature/observability":"#a15bff"};
-let commits=[
-{h:"a3f9c2e",m:"Merge pull request #482 · auth",a:"r.rodriguez",t:"2m ago",b:"main"},
-{h:"7e4d1ab",m:"Release v2.8.0",a:"r.rodriguez",t:"4m ago",b:"release/v2.8"},
-{h:"c9b8f73",m:"Update helm chart",a:"j.lopez",t:"6m ago",b:"develop"},
-{h:"5d2e1f0",m:"Add auth middleware",a:"m.torres",t:"8m ago",b:"feature/auth"},
-{h:"3a6f9c1",m:"Fix pipeline config",a:"d.garcia",t:"10m ago",b:"develop"},
-{h:"8e3f4b2",m:"Merge feature/payment",a:"r.rodriguez",t:"12m ago",b:"main"},
-{h:"6b7d2a9",m:"Add monitoring alerts",a:"m.torres",t:"14m ago",b:"feature/observability"},
-{h:"4c1e9d3",m:"Update Dockerfile",a:"j.lopez",t:"16m ago",b:"feature/payments"},
-{h:"2f8a7c6",m:"Merge feature/observability",a:"r.rodriguez",t:"18m ago",b:"develop"},
-{h:"1d3e5f7",m:"Refactor services",a:"d.garcia",t:"20m ago",b:"feature/auth"}];
-const branches=Object.keys(branchColors);
-function renderGraph(){
- const filter=$("#branchFilter").value, svg=$("#gitGraph");svg.innerHTML="";
- const rows=branches.filter(b=>filter==="all"||b===filter); const yMap={main:36,"release/v2.8":104,develop:172,"feature/auth":240,"feature/payments":308,"feature/observability":376};
- const ns="http://www.w3.org/2000/svg";
- function el(tag,attrs,parent=svg){let n=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,v));parent.appendChild(n);return n}
- // Branch paths with merge and fork points. Decorative graph represents sample history, not a live API feed.
- const paths={
- main:"M18 36 H650",
- "release/v2.8":"M18 104 H190 Q205 104 205 88 V52 Q205 36 220 36 M205 88 V104 H315 Q330 104 330 122 V138 Q330 172 360 172 H650",
- develop:"M18 172 H650",
- "feature/auth":"M18 240 H235 Q252 240 252 257 V274 Q252 290 270 290 H450 Q470 290 470 270 V190 Q470 172 490 172",
- "feature/payments":"M18 308 H160 Q175 308 175 325 V340 Q175 357 192 357 H330 Q348 357 348 338 V325 Q348 308 366 308 H560 Q580 308 580 290 V270 Q580 240 610 240",
- "feature/observability":"M18 376 H280 Q300 376 300 360 V354 Q300 340 320 340 H420 Q440 340 440 360 V375 H520 Q540 375 540 350 L565 270 Q570 250 590 240"};
- rows.forEach(b=>el("path",{d:paths[b],fill:"none",stroke:branchColors[b],"stroke-width":3,"stroke-linecap":"round","stroke-linejoin":"round",opacity:.9}));
- // Merge connectors across branches
- [[205,36,104],[330,172,104],[470,172,240],[348,308,172],[440,376,308],[565,240,376]].forEach(([x,y1,y2])=>el("path",{d:`M${x} ${y1} V${y2}`,stroke:"#1d8ac4","stroke-width":1.6,fill:"none",opacity:.8}));
- branches.forEach(b=>{if(filter!=="all"&&filter!==b)return;let y=yMap[b];el("rect",{x:10,y:y-14,width:Math.max(75,b.length*7+24),height:27,rx:7,fill:branchColors[b],opacity:.9});let tx=el("text",{x:19,y:y+4,fill:"#031326","font-size":11,"font-weight":700});tx.textContent=b;
- for(let x=110;x<660;x+=35){if(x<Math.max(100,b.length*7+30))continue;el("circle",{cx:x,cy:y,r:4,fill:branchColors[b],stroke:"#06162b","stroke-width":1})}});
-}
-function renderCommits(){let q=$("#commitFilter").value.toLowerCase();$("#commits").innerHTML=commits.filter(c=>(c.m+c.h+c.b+c.a).toLowerCase().includes(q)).map(c=>`<div class="commit-row"><span class="commit-msg"><span class="hash">${c.h}</span>${c.m}</span><span class="author">${c.a}</span><span class="time">${c.t}</span></div>`).join("")||'<div class="commit-row">No matching commits</div>'}
-function toast(msg){let t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2800)}
-function activity(type,msg,level="INFO"){let row=document.createElement("div");row.className="activity-item";let d=new Date();row.innerHTML=`<span class="activity-dot ${level==="WARN"?"orange-bg":level==="GIT"?"cyan-bg":"green-bg"}"></span><time>${d.toLocaleTimeString("es-CL",{hour12:false})}</time><b>${type}</b><span>${msg}</span><em>${level}</em>`;$("#activity").prepend(row)}
-function setEnv(env){$$(".env").forEach(b=>b.classList.toggle("active",b.dataset.env===env));$("#envPill").textContent=env;$("#envDeployText").textContent=env==="PROD"?"Production target selected":env==="STAGING"?"Staging target selected":"Development target selected";toast("Entorno seleccionado: "+env);activity("environment",`Target changed to ${env}`,"INFO")}
-$$(".env").forEach(b=>b.addEventListener("click",()=>setEnv(b.dataset.env)));
-$("#branchFilter").addEventListener("change",renderGraph);$("#commitFilter").addEventListener("input",renderCommits);
-$("#search").addEventListener("input",e=>{let q=e.target.value;$("#commitFilter").value=q;renderCommits();if(q)toast("Buscando en el historial visible")});
-$("#refresh").addEventListener("click",()=>{renderGraph();renderCommits();activity("refresh","Vista local actualizada","INFO");toast("Panel actualizado")});
-$("#simulate").addEventListener("click",()=>{let h=Math.random().toString(16).slice(2,9);commits.unshift({h,m:"feat: simulated commit → pipeline",a:"you",t:"just now",b:"feature/auth"});commits=commits.slice(0,12);renderCommits();renderGraph();activity("commit",`${h} feat: simulated commit on feature/auth`,"GIT");toast("Commit simulado creado. Ejecuta el pipeline demo.");$("#runStatus").textContent="NEW COMMIT";});
-$("#runPipeline").addEventListener("click",async()=>{let stages=$$(".stage");$("#runStatus").textContent="RUNNING";stages.forEach(s=>{s.classList.remove("done","warn","running");s.querySelector(".stage-node b")?.remove()});for(let i=0;i<stages.length;i++){stages[i].classList.add("running");activity("job",["source-validation","build","unit-tests","security-checks","deploy-pages"][i]+" started","INFO");await new Promise(r=>setTimeout(r,650));stages[i].classList.remove("running");stages[i].classList.add(i===3?"warn":"done");let b=document.createElement("b");b.textContent=i===3?"!":"✓";stages[i].querySelector(".stage-node").appendChild(b);stages[i].querySelector("em").textContent=i===3?"Review required":"Completed";}$("#runStatus").textContent="COMPLETED WITH WARNING";activity("workflow","Demo pipeline completed; review security advisory","WARN");toast("Flujo demo terminado. Esta simulación no ejecuta jobs en GitHub.");});
-$("#clearActivity").addEventListener("click",()=>{$("#activity").innerHTML="";toast("Eventos locales limpiados")});
-$$(".nav").forEach(b=>b.addEventListener("click",()=>{$$(".nav").forEach(n=>n.classList.remove("active"));b.classList.add("active");let map={overview:null,git:"#gitPanel",pipeline:"#pipelinePanel",security:"#securityPanel",deploy:"#pipelinePanel",audit:"#activityPanel"};if(map[b.dataset.view])$(map[b.dataset.view]).scrollIntoView({behavior:"smooth",block:"start"});else window.scrollTo({top:0,behavior:"smooth"})}));
-renderGraph();renderCommits();
+(() => {
+  const OWNER='rodrodbeat-stack', REPO='888DIGITALFACTORY-Nexus-CI-CD';
+  const API=`https://api.github.com/repos/${OWNER}/${REPO}`;
+  const $=id=>document.getElementById(id);
+  let branches=[], commits=[], selectedBranch='all', runToken=0;
+  const colors=name=>name==='main'?'#3de4ff':name==='develop'?'#a77aff':name.startsWith('feature/')?'#56f2a5':name.startsWith('release/')?'#ffcc66':name.startsWith('hotfix/')?'#ff6688':'#6ea8ff';
+  const short=s=>s?s.slice(0,7):'-------';
+  function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}
+  function escapeHtml(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  async function getJson(url){const r=await fetch(url,{headers:{Accept:'application/vnd.github+json'}});if(!r.ok)throw new Error(r.status===403?'Límite temporal de API de GitHub. Espera un minuto y vuelve a sincronizar.':`GitHub API respondió ${r.status}`);return r.json()}
+  async function load(){
+    $('connectionLabel').textContent='SYNC EN PROGRESO';$('dataMode').textContent='FETCHING LIVE DATA';$('refreshBtn').disabled=true;
+    try{
+      const b=await getJson(`${API}/branches?per_page=100`);branches=b;
+      const results=await Promise.all(b.slice(0,20).map(async br=>{try{return await getJson(`${API}/commits?sha=${encodeURIComponent(br.name)}&per_page=8`)}catch(e){return []}}));
+      const seen=new Set();commits=[];results.forEach((list,i)=>list.forEach(c=>{if(!c||!c.sha)return;const branch=branches[i]?.name||'unknown';const key=`${c.sha}:${branch}`;if(seen.has(key))return;seen.add(key);commits.push({sha:c.sha,message:(c.commit?.message||'').split('\n')[0],author:c.commit?.author?.name||c.author?.login||'unknown',date:c.commit?.author?.date||'',url:c.html_url,branch});}));
+      commits.sort((a,b)=>new Date(b.date)-new Date(a.date));
+      $('branchCount').textContent=branches.length;$('commitCount').textContent=commits.length;$('connectionLabel').textContent='GITHUB CONNECTED';$('dataMode').textContent='LIVE GITHUB API';$('pipelineStatus').textContent='READY';$('pipelineSub').textContent='Esperando ejecución manual';$('lastUpdated').textContent='LAST SYNC: '+new Date().toLocaleTimeString();
+      renderBranches();renderGraph();renderCommits();
+    }catch(e){$('connectionLabel').textContent='API UNAVAILABLE';$('dataMode').textContent='CONNECTION ERROR';$('graphWrap').innerHTML=`<div class="loading"><p>⚠ ${escapeHtml(e.message)}</p><button class="small-btn" onclick="document.getElementById('refreshBtn').click()">RETRY SYNC</button><p>Comprueba que el repositorio sea público y que la URL esté bien escrita.</p></div>`;toast(e.message)}finally{$('refreshBtn').disabled=false}
+  }
+  function renderBranches(){
+    $('branchSummary').textContent=`${branches.length} RAMAS`;const list=$('branchList');list.innerHTML='';
+    const all=document.createElement('button');all.className='branch-chip '+(selectedBranch==='all'?'selected':'');all.innerHTML='<span class="tiny-dot"></span>ALL BRANCHES';all.onclick=()=>{selectedBranch='all';renderBranches();renderGraph();renderCommits()};list.appendChild(all);
+    branches.forEach(b=>{const el=document.createElement('button');el.className='branch-chip '+(selectedBranch===b.name?'selected':'');el.innerHTML=`<span class="tiny-dot" style="background:${colors(b.name)}"></span>${escapeHtml(b.name)}`;el.title='Ver commits de '+b.name;el.onclick=()=>{selectedBranch=b.name;renderBranches();renderGraph();renderCommits()};list.appendChild(el)});
+  }
+  function renderGraph(){
+    const svg=$('branchGraph'),wrap=$('graphWrap');wrap.querySelector('.loading')?.remove();const W=Math.max(520,wrap.clientWidth||700),H=370;svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.innerHTML='';
+    const NS='http://www.w3.org/2000/svg';const add=(tag,attrs,parent=svg,textVal)=>{const e=document.createElementNS(NS,tag);Object.entries(attrs||{}).forEach(([k,v])=>e.setAttribute(k,v));if(textVal!==undefined)e.textContent=textVal;parent.appendChild(e);return e};
+    const shown=selectedBranch==='all'?branches:branches.filter(b=>b.name===selectedBranch);if(!shown.length){add('text',{x:24,y:40,class:'graph-label'},svg,'No se encontraron ramas para mostrar.');return}
+    const left=selectedBranch==='all'?155:115,right=30,plotW=W-left-right;const lanes=shown.slice(0,12);const laneGap=Math.max(22,Math.min(39,(H-70)/Math.max(lanes.length,1)));const y0=34;
+    lanes.forEach((b,i)=>{const y=y0+i*laneGap;const color=colors(b.name);add('line',{x1:left,y1:y,x2:W-right,y2:y,stroke:'#1b2b43','stroke-width':1});add('text',{x:10,y:y+4,class:'graph-label',fill:color,style:`fill:${color}`},svg,b.name.length>19?b.name.slice(0,18)+'…':b.name);const branchCommits=commits.filter(c=>c.branch===b.name).slice(0,6);const count=Math.max(branchCommits.length,1);const xs=branchCommits.map((c,j)=>left+20+j*(Math.max(0,plotW-60)/Math.max(1,count-1)));if(xs.length>1)add('path',{d:xs.map((x,j)=>(j?'L':'M')+x+' '+y).join(' '),class:'graph-line pulse',stroke:color});if(!branchCommits.length){add('circle',{cx:left+20,cy:y,r:4,fill:color,opacity:.6});add('text',{x:left+32,y:y+3,class:'graph-sha'},svg,'No recent commits returned');}branchCommits.forEach((c,j)=>{const x=xs[j];const g=add('g',{class:'commit-node',tabindex:'0',role:'button','aria-label':c.message});add('circle',{cx:x,cy:y,r:4.5,fill:color,stroke:'#08101c','stroke-width':2},g);add('title',{},g,`${b.name}\n${short(c.sha)} · ${c.message}`);if(j===branchCommits.length-1||j===0)add('text',{x:x,y:y-9,class:'graph-sha','text-anchor':'middle'},g,short(c.sha));g.addEventListener('click',()=>{if(c.url)window.open(c.url,'_blank','noopener')});});});
+    if(branches.length>12)add('text',{x:W-15,y:H-8,class:'graph-sha','text-anchor':'end'},svg,`+ ${branches.length-12} ramas más en inventario`);
+    add('text',{x:left,y:H-10,class:'graph-sha'},svg,'OLDER  ←  COMMIT HISTORY  →  RECENT');
+  }
+  function renderCommits(){const rows=commits.filter(c=>selectedBranch==='all'||c.branch===selectedBranch).slice(0,14);$('activityCount').textContent=`${rows.length} EVENTS`;const body=$('commitTable');if(!rows.length){body.innerHTML='<tr><td colspan="5" class="empty">No hay commits recientes devueltos para este filtro.</td></tr>';return}body.innerHTML=rows.map(c=>`<tr><td><a style="color:var(--cyan);text-decoration:none" href="${escapeHtml(c.url)}" target="_blank" rel="noreferrer">${short(c.sha)}</a></td><td title="${escapeHtml(c.message)}">${escapeHtml(c.message||'(sin mensaje)')}</td><td><span class="branch-tag">${escapeHtml(c.branch)}</span></td><td>${escapeHtml(c.author)}</td><td>${c.date?new Date(c.date).toLocaleString():'—'}</td></tr>`).join('')}
+  $('refreshBtn').addEventListener('click',load);$('allBranchesBtn').addEventListener('click',()=>{selectedBranch='all';renderBranches();renderGraph();renderCommits()});
+  const jobs=[...document.querySelectorAll('.job')];jobs.forEach((j,i)=>j.addEventListener('click',()=>{jobs.forEach(x=>x.classList.remove('active'));j.classList.add('active');toast(`Job ${i+1}: ${j.querySelector('b').textContent}. Usa RUN DEMO PIPELINE para animar el flujo completo.`)}));
+  $('runPipeline').addEventListener('click',async()=>{const token=++runToken;const btn=$('runPipeline');btn.disabled=true;$('pipelineStatus').textContent='RUNNING';$('pipelineSub').textContent='Simulación de entrega en curso';jobs.forEach(j=>{j.classList.remove('active','done','failed');j.querySelector('.job-state').textContent='WAIT'});document.querySelectorAll('.env-card').forEach(e=>e.classList.remove('active','done'));const envs=[...document.querySelectorAll('.env-card')];for(let i=0;i<jobs.length;i++){if(token!==runToken)return;jobs[i].classList.add('active');jobs[i].querySelector('.job-state').textContent='RUNNING';await new Promise(r=>setTimeout(r,650));if(token!==runToken)return;jobs[i].classList.remove('active');jobs[i].classList.add('done');jobs[i].querySelector('.job-state').textContent='PASS';if(i===0)envs[0].classList.add('active');if(i===1){envs[0].classList.remove('active');envs[0].classList.add('done');envs[1].classList.add('active')}if(i===2){envs[1].classList.remove('active');envs[1].classList.add('done');envs[2].classList.add('active')}if(i===3){envs[2].classList.remove('active');envs[2].classList.add('done');envs[3].classList.add('active')}if(i===4){envs[3].classList.remove('active');envs[3].classList.add('done')}}$('pipelineStatus').textContent='SUCCESS';$('pipelineSub').textContent='Demo completada · no se ejecutó un deploy real';btn.disabled=false;toast('Demo pipeline completada. No se realizaron cambios en AWS, Azure ni GitHub Actions.');});
+  load();
+})();
